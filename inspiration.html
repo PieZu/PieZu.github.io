@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset = "UTF-8">
+		<title> inspo </title>
+		<style>
+			body {
+				font-family: "Comic Sans MS";
+				text-align: center;
+			}
+			h1 {
+				text-decoration: underline;
+				color: red;
+			}
+			a {
+				text-decoration: none;
+			}
+		</style>
+	</head>
+
+	<body>
+		<header>
+			<a href="index.html" style="float:left;text-decoration:none"> home </a>
+			<h1> Cool things </h1>
+		</header>
+
+		<main>
+			<ul id="list">
+				fancy dancy js loading...
+			</ul>
+		</main>
+
+		<script>
+			data = [
+				{						 	link: "autodissociate.me", 									tooltip: "nsfw"
+				}, {						link: "shirtz.cool", 	 									tooltip: "if i did fast fashion i would love this"
+				}, {						link: "tokipona.org"
+
+				}, {name: "hi, im a slut", 	link: "youtube.com/embed/w6CCePrJlaU", 						tooltip: "spoken poetry"
+				}, {name: "jreg",			link: "youtube.com/playlist?list=PLGALsgF3LJjx4m3HCdCHiHGIWxYKl8yG4",tooltip:"nice"
+
+				}, {name:"</a> <h4> -- interactive media -- <a>"
+				}, {name: "everything is going to be okay",link:"alienmelon.itch.io/everything-is-going-to-be-ok",
+				}, {name: "electric zine maker",link:"alienmelon.itch.io/electric-zine-maker", 			tooltip: "wish this supported higher resolutions ;-;"
+				}, {name: "one night, hot springs",link:"npckc.itch.io/one-night-hot-springs",			tooltip: "experiences are subjective. but i played thru till i got all the endings and well it made me cry a lot"
+				}, {name: "catasterism",	link:"waverlyplace.itch.io/catasterism",					tooltip: "its no masterpiece but i very much enjoyed it"
+
+
+				}, {name:"</a> <h4> -- music artists -- <a>"
+				}, {name: "patricia taxxon",link: "www.youtube.com/channel/UCOjLfFE0TABS9bk05oH-kgw",	tooltip: "best music, based videos, bad twitter"
+				}, {name: "black dresses", 	link: "blackdresses.bandcamp.com", 							tooltip: "yesyesyesyes"
+				}, {name: "100 geccos",		link: "open.spotify.com/artist/6PfSUFtkMVoDkx4MQkzOi3", 	tooltip: "gecgecgecgec"
+				}, {name: "sophie", 		link: "www.youtube.com/channel/UCu_9_zRVfKee4v7xXXcv2ag", 	tooltip: "literally iconic. unreleased stuff also v good"
+				}, {name: "dorian electra",	link: "twitter.com/DORIANELECTRA", 							tooltip: "imagine kim petras but good"
+				}, {name: "mars argo",		link: "youtube.com/watch?v=euKWgAG-1Vg",					tooltip: "<3"
+				}, {name: "pavilion",		link: "parallelpavilions.bandcamp.com/album/emotional-starry-night",tooltip:"idk listened to this once and was like wow sounds like the things i think i can make but cant quite"
+				}, {name: "ayesha erotica", link: "no url because she wants privacy"
+				}, {name: "spotify",		link: "open.spotify.com/user/hungry__pie",					tooltip: "my spotify, containing all the other musics"
+
+				}, {name:"</a><h4> -- music videos -- <a>"
+				}, {name:"faceshopping", 	link:"youtube.com/watch?v=es9-P1SOeHU", 					tooltip:"flashing imagery warning"
+				}, {name:"ponyboy", 		link:"youtube.com/watch?v=uERIXLWeik0", 					tooltip:"flashing imagery warning. this song goes HARD tho."
+				}, {name:"hard (fanmade)", 	link:"youtube.com/watch?v=c7MDR9g94RY",						tooltip:"i basically copied this but made it worse lmaooo"
+				}, {name:"money machine", 	link:"youtube.com/watch?v=z97qLNXeAMQ", 					tooltip: "its mainly the song, the video is cool too i guess"
+				}, {name:"stupid horse (fanmade)",link:"youtube.com/watch?v=aSZI6sYgXCA", 				tooltip: "changed the way i viewed the song v cool"
+				}, {name:"safe skin", 		link:"youtube.com/watch?v=SgGV7yMoZ28", 					tooltip: "i dont even like the song lol"
+				}, {name:"mami", 			link:"youtube.com/watch?v=-MJwX7m7uWY",						tooltip: "uwuwu"
+				}, {name:"blame it on your love",link:"youtube.com/watch?v=HXsEpa1XjqI",				tooltip: "they did track 10 dirty but at least the mv is interesting"
+				}, {name:"poorly drawn neko gril (pretty girl)",link:"youtube.com/watch?v=wrgSvZ-A	kI4",tooltip: "oop"
+				}, {name:"make it funky now",link:"youtube.com/watch?v=bcoPG0oSqPI ",					tooltip:"ok but imagine if u made this and could put it in ur cv"
+
+				}
+			]
+
+			document.getElementById("list").innerHTML = data.map(item=>`<li> <a href="${"http://"+item.link}" title="${item.tooltip||item.link}"> ${item.name||item.link} </a> </li>`).join("")
+		</script>
+	</body>
