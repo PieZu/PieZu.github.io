@@ -128,12 +128,16 @@
 		}
 
 		imported.forEach(([_, data])=>{
-			let thisPath = new paper.Path(data)
-			if (data.segments == undefined) { data.segments = [] }
+			try {
+				let thisPath = new paper.Path(data)
+				if (data.segments == undefined) { data.segments = [] }
 
-			thisPath.originalPoints = data.segments.map(([[x,y]])=>{return {x:x, y:y}})
-			thisPath.offset = new paper.Point()
-			allLetters.push(thisPath)
+				thisPath.originalPoints = data.segments.map(([[x,y]])=>{return {x:x, y:y}})
+				thisPath.offset = new paper.Point()
+				allLetters.push(thisPath)
+			} catch (e) {
+				console.error(e)
+			}
 		});
 		[0,4,15,19,53].forEach(i=>allLetters[i].smooth()); // remove all the mysterious glitched curves
 		
