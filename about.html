@@ -4,7 +4,7 @@
 <script type="text/javascript" src="paper.js"></script>
 <script type="text/javascript">
 	const BLACK = 'black', BLUE = 'rgb(100,135,225)'
-	const DRIFT_SPEED = 0.05;
+	const DRIFT_SPEED = Math.random()*0.1+0.02;
 	const quadrantDecomposeTable = [[], [false,false], [false,true], [true,true], [true,false]]
 
 	var currentDrawing;
