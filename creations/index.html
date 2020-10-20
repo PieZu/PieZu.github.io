@@ -1,0 +1,160 @@
+<html>
+	<head>
+		<title> creations </title>
+
+		<style>
+			* { font-family: Tahoma, Geneva, sans-serif; }
+			
+			.ribbon {
+				display: flex;
+				margin-top: 50px;
+			}
+
+			.section {
+				text-transform: lowercase;
+
+				width: 31%;
+				margin: 1%;
+				height: 99px;
+			}
+
+			.title {
+				padding: 30px;
+				text-align: center;
+				font-size: 2em;
+			}
+
+			
+			.dropdown { display: none; }
+			.section:hover .dropdown { display: block; }
+
+			.dropdown a {
+				display: block;
+				text-align: left;
+				font-size: 1em;
+				text-decoration: none;
+				padding: 10px 10px;
+				padding-right: auto;
+
+				color:black;
+			}
+
+			.expanded .dropdown {
+				position: relative;
+				left: 100%;
+				top: -40px;
+				width: 55%;
+			}
+			.expanded .dropdown a 		{ display: none; }
+			.expanded:hover .dropdown a { display: block; }
+			.expanded .dropdown .expanded .dropdown a 		{ display: none; }
+			.expanded .dropdown .expanded:hover .dropdown a { display: block; }
+			.expanded .dropdown .expanded .dropdown .expanded .dropdown a 		{ display: none; }
+			.expanded .dropdown .expanded .dropdown .expanded:hover .dropdown a { display: block; }
+
+			/* colors */
+			#code .title { background-color: hsl(180, 66%, 82%); }
+			#art  .title { background-color: hsl(90,  66%, 82%); }
+			#word .title { background-color: hsl(290, 66%, 82%); }
+
+			#code .dropdown a { background-color: hsl(180, 33%, 95%); }
+			#art  .dropdown a { background-color: hsl(90,  33%, 95%); }
+			#word .dropdown a { background-color: hsl(290, 33%, 95%); }
+			
+			#code .dropdown a:hover { background-color: hsl(180, 33%, 88%); }
+			#art  .dropdown a:hover { background-color: hsl(90,  33%, 88%); }
+			#word .dropdown a:hover { background-color: hsl(290, 33%, 88%); }
+
+
+			main {
+				height: 100%;
+				
+				width: 55%;
+				margin-left:  auto;
+				margin-right: auto;
+			}
+		</style>
+	</head>
+
+	<body>
+		<header> <a href='../index.html'>home</a> </header>
+
+		<main>
+			<div class="ribbon">
+
+				<div class="section" id="code">
+					<div class="title">Code</div>
+					<div class="dropdown">
+						<a href="../tp/index.html">toki pona</a>
+						<a href="pico8.html">pico-8</a>
+						<!-- <a href="https://elvyphie.itch.io/">itch.io</a> -->
+						<a href="https://scratch.mit.edu/Hungry-Pie/">Scratch</a>
+						<!-- <a href="../cv.html">CV</a> -->
+						<a href="bots.html">discord</a>
+
+						<div class="expanded">
+							<a>misc</a>
+							<div class="dropdown">
+								<a href="js/index.html">js</a>
+								<a href="py/index.html">py</a>
+							</div>
+						</div>
+					
+					</div>
+				</div>
+				
+				<div class="section" id="art">
+					<div class="title">Art</div>
+					<div class="dropdown">
+						<a href="art/videos.html">videos</a>
+						<a href="https://elvyphie.bandcamp.com/">music</a>
+						<a href="art/poetry.html">poetry</a>
+						<a href="art/glitchart.html">glitchart</a>
+						<a href="art/emoji.html">emote edits</a>
+
+						<div class="expanded"> <a> owo </a> <div class="dropdown">
+							
+							
+
+							<div class="expanded"> <a> what's this? </a> <div class="dropdown">
+								<div class="expanded"> <a> > idk </a> <div class="dropdown"> 
+									<a href="../uwu.html"> ;3 </a>
+								</div></div>
+								
+								<div class="expanded"> <a> > art..? </a> <div class="dropdown"> 
+									<a href="../uwu.html"> ok </a>
+								</div></div>
+								
+								<div class="expanded"> <a href=""> > broken </a> <div class="dropdown"> 
+									<a> pog </a>
+								</div></div>
+							
+							</div> </div>
+
+							<div class="expanded"> <a> uwu </a> <div class="dropdown"> 
+								<a> uwu </a>
+								<div class="expanded"> <a> uwu </a> <div class="dropdown"> 
+									<a href="easteregg.html"> owo </a>
+									<a href=""> uwu </a>
+								</div></div>
+							</div></div>
+						</div>
+					</div>
+
+					</div>
+				</div>
+
+				<div class="section" id="word">
+					<div class="title">Words</div>
+					<div class="dropdown">
+						<a href="../tp/waleja.html">toki pona</a>
+						<a href="ctf.html">CTF Writeups</a>
+						<a href="rant.html">Rants</a>
+					</div>
+				</div>
+
+			</div>
+		</main>
+
+	</body>
+</html>

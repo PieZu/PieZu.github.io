@@ -3299,7 +3299,7 @@ var P;
                         threads = sprite.listeners.whenBackdropChanges['' + arg];
                         break;
                     case 'whenIReceive':
-                        window.location.href = `./${["inspiration", "creations", "about"][arg-1]}.html`
+                        window.location.href = `./${["inspiration", "creations/index", "about"][arg-1]}.html`
                         break;
                     default: throw new Error('Unknown trigger event: ' + event);
                 }
