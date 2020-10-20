@@ -2,15 +2,14 @@
 <html lang="en">
 	<head>
 		<meta charset = "UTF-8">
-		<title> reperations </title>
-		<style>
-		</style>
+		<title> source </title>
+		<style>		</style>
 	</head>
 
 	<body>
 		<header>
-			<a href="index.html" style="float:left;text-decoration:none"> home </a>
-			<h1> Cool things </h1>
+			<a href="index.html" style="float:left;text-decoration:none"> home </a><br>
+			<h1> Creditz </h1>
 		</header>
 
 		<main>
@@ -18,7 +17,8 @@
 				<li>about.html powered by [paper.js](http://paperjs.org/) ([MIT](http://paperjs.org/license/))</li>
 				<li>index.html powered by [scratch](https://scratch.mit.edu) ([CC-SA](https://creativecommons.org/licenses/by-sa/2.0/deed.en)) with [forkphorous](https://forkphorus.github.io/packager/) ([MIT](https://raw.githubusercontent.com/forkphorus/forkphorus/master/LICENSE))</li>
 				<li>hosting powered by [GitHub Pages](https://pages.github.com/)</li>
-				<li>rest done by me</li>
+				<li><a href="#" onclick="init_frogs()">frogs</a> powered by [alienmelon](https://github.com/alienmelon/frogpets.js)</li>
+				<li>rest done by [me](about)</li>
 			</ul>
 		</main>
 
@@ -26,9 +26,11 @@
 			// markdownify it
 			[...document.getElementsByClassName('markdown')].forEach(element=>{
 				element.innerHTML = element.innerHTML
-									.replace(/\w+\.html/g, "<a href='$&''>$&</a>")
+									.replace(/\w+\.html/g, "<a href='$&'>$&</a>")
 									.replace(/\[(.+?)\]\((.+?)\)/g, "<a href='$2'>$1</a>")
 			})
 		</script>
+
+		<script src="frog/frogpets.js"></script>
 	</body>
 </html>
