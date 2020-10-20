@@ -54,14 +54,31 @@
 		}
 
 		paper.view.onMouseUp =function(event) {
+			/* 
+				add the path to the array of all paths
+			*/
+			
 			currentDrawing.simplify()
+			// extract "originalPoints"
 			currentDrawing.originalPoints = currentDrawing.segments.map(function(segment){return {x: segment.point.x, y:segment.point.y}})
+			// set offset thing so it doesnt crash later (related to continential drift)
 			currentDrawing.offset = {x:0, y:0}
+			// add it
 		    allLetters.push(currentDrawing)
 
-		    console.log(allLetters.slice(N_OF_ORIGINAL_LINES))
-		    console.log(JSON.parse(JSON.stringify(allLetters.slice(N_OF_ORIGINAL_LINES))))
-		    localStorage.setItem("doodles", JSON.stringify(allLetters.slice(N_OF_ORIGINAL_LINES,-1)))
+		    /*
+		    	save all edits to localstorage 
+		    */
+
+		    // replace the points with their original (before random shiftings)
+		    for (line of allLetters.slice(N_OF_ORIGINAL_LINES)) {
+		    	line.segments = line.segments.map((segment, i)=>{
+		    		segment.point = line.originalPoints[i]
+		    		return segment
+		    	})
+		    }
+		    // set it
+		    localStorage.setItem("doodles", JSON.stringify(allLetters.slice(N_OF_ORIGINAL_LINES)))
 		}
 
 		function range(min,max) { let array = []; for (let i=min; i<=max; i++) { array.push(i) } return array}
