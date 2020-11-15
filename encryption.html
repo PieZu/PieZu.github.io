@@ -1,0 +1,181 @@
+<style>
+body {
+	font-family: arial;
+	background-color:#eee;
+}
+div {
+	display: inline-block;
+	margin: 0 0 5 2;
+}
+textarea {
+	width: 500px;
+	height: 30%;
+	font-family: arial;
+	display:block;
+}
+
+</style>
+
+<main>
+	<b>
+	<h1>Proof of concept test suite thing for encrypted pages i guess :p</h1>
+
+	<div>
+		Password:
+		<input id="password">
+	</div>
+
+	<div>
+		Salt:
+		<input id="salt">
+	</div>
+
+	<div>
+		Key:
+		<input id="key" disabled>
+	</div>
+
+	<div>
+		IV:
+		<input id="iv">
+	</div>
+
+	<br>
+	
+	<div>
+		Plaintext:
+		<textarea id="plaintext">
+		</textarea>
+	</div>
+
+	<div>
+		Ciphertext:
+		<textarea id="ciphertext">
+		</textarea>
+	</div>
+</b>
+</main>
+
+<script>
+	// -- encryption code -- //
+	str = new TextEncoder() // so we can turn strings into arrays that the crypto recognises
+	arr = new TextDecoder()
+
+	async function generateKey(password, salt) {
+		return await crypto.subtle.deriveKey(
+			// encryption method
+			{
+				"name": "PBKDF2",
+				salt: str.encode(salt),
+				"iterations": 500000,
+				"hash": "SHA-256"
+			},
+			// the plaintext password we generate the key from. this step is just turning it into an object that deriveKey can read
+			await crypto.subtle.importKey("raw", str.encode(password), "PBKDF2", false, ["deriveBits","deriveKey"]),
+			// the algorithm which the generated key will be used for
+			{ "name": "AES-GCM", "length": 256},
+			// whether or not the key can be exported
+			true,
+			// what methods will the key be used for
+			[ "encrypt", "decrypt"]
+		)
+	}
+
+	async function encrypt(plaintext, key) {
+		let iv = crypto.getRandomValues(new Uint32Array(4))
+		let ciphertext = await crypto.subtle.encrypt(
+			{
+				name: "AES-GCM", // encryption method
+				iv: iv // TypedArray of 16 random bytes
+			},
+			key,
+			str.encode(plaintext)
+		);
+
+		return {iv: iv, data: ciphertext}
+	}
+
+	async function decrypt(ciphertext, iv, key) {
+		let plaintext = await crypto.subtle.decrypt(
+			{name: "AES-GCM", iv:iv},
+			key,
+			ciphertext
+		)
+		return arr.decode(plaintext)
+	}
+
+	// -- html stuff -- //
+	output = document.getElementById("ciphertext")
+	input = document.getElementById('plaintext')
+	ivElem = document.getElementById("iv")
+	keyElem = document.getElementById("key")
+
+	
+	function stringise(arraybuffer) {
+		return [...new Uint8Array(arraybuffer)].map(n=>String.fromCharCode(n)).join('') // Uint32Array wont decode properly prob bc utf stuff. Uint16Array works rlly nicely, except only on even lengths :/ o well i think they still store in basically the same # of bits so yeah.
+	}
+	function bufferise(string) {
+		return new Uint8Array(string.split('').map(c=>c.charCodeAt(0))).buffer
+	}
+
+	// its intentionally resource-intensive to generate keys, so we want to avoid making them on intemediary keystrokes
+	var password, 
+		generating_password = new_to_gen = false
+
+	async function genKey() {
+
+		if (generating_password) {
+			new_to_gen = true
+		} else {
+			generating_password = true
+			new_to_gen = false
+
+			password = document.getElementById('password').value
+			keyElem.value = "..."
+			key = await generateKey(password, salt)
+			keyElem.value = (await crypto.subtle.exportKey('jwk', key)).k
+			generating_password = false
+
+			if (new_to_gen) { // if a new one's come up in the time
+				return await genKey() // regen it innit	
+			} else return key
+		}
+	}
+
+	keyElem.value = '...'
+	generateKey(document.getElementById('password').value, document.getElementById('salt').value).then(async key=>{
+		keyElem.value = (await crypto.subtle.exportKey('jwk', key)).k;
+		[...document.getElementsByTagName("input"), ...document.getElementsByTagName("textarea")].forEach(element=>
+			element.addEventListener('input', async e=>{
+				switch (e.target.id) {
+					case 'password':
+					case 'salt':
+						password = document.getElementById('password').value
+						salt = document.getElementById('salt').value
+
+						await genKey()
+					case 'plaintext':
+						plaintext = input.value
+						encrypted = await encrypt(plaintext, key)
+
+						output.value = stringise(encrypted.data)
+						ivElem.value = stringise(encrypted.iv.buffer) // just a representation to show its changing each time
+
+						break;
+					case 'iv':
+						iv = bufferise(ivElem.value)
+					case 'ciphertext':
+						ciphertext = bufferise(output.value)
+
+						try {
+							input.value = await decrypt(ciphertext, iv, key)
+						}
+						catch(e) {
+							input.value = "[error decrypting]"
+						}
+
+				}
+			}))
+	})
+	
+</script>
