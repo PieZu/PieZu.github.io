@@ -1,0 +1,28 @@
+.locked {
+	width:333px; 
+	height:500px; 
+	background-color: #777; 
+	text-align: center;
+	color: white;
+	padding: 30px 140px;
+	font-family: calibri;
+}
+
+
+.lockicon::before {
+	font-size: 8em;
+	content: "🔒";
+}
+.lockicon::after {
+	display: block;
+	content: "Uh oh buddy, this contains like private stuff.";
+}
+
+.lockprompt::before {
+	display: block;
+	content: "if u think u should b able to view this contact me";
+}
+.lockprompt::after {
+	display:block;
+	content: "Enter password to decrypt";
+}
