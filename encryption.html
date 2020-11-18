@@ -69,7 +69,7 @@ textarea {
 				"hash": "SHA-256"
 			},
 			// the plaintext password we generate the key from. this step is just turning it into an object that deriveKey can read
-			await crypto.subtle.importKey("raw", bufferise(password), "PBKDF2", false, ["deriveBits","deriveKey"]),
+			await crypto.subtle.importKey("raw", new TextEncoder.encode(password), "PBKDF2", false, ["deriveBits","deriveKey"]),
 			// the algorithm which the generated key will be used for
 			{ "name": "AES-GCM", "length": 256},
 			// whether or not the key can be exported
@@ -109,7 +109,7 @@ textarea {
 	keyElem = document.getElementById("key")
 	// make these not cached so u dont get confused that why doesnt work
 	ivElem.value = ""
-	
+
 	// converting from arraybuffer to string and vice versa so we can copy&paste from the format the crypto gives us
 	char = "#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_{|}~ abcdefghijklmnopqrstuvwxyzÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ" // 128 of the 189 or so printable fromCharCode < 2**8 (ascii?)
 
