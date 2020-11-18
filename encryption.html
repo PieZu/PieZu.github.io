@@ -69,7 +69,7 @@ textarea {
 				"hash": "SHA-256"
 			},
 			// the plaintext password we generate the key from. this step is just turning it into an object that deriveKey can read
-			await crypto.subtle.importKey("raw", new TextEncoder.encode(password), "PBKDF2", false, ["deriveBits","deriveKey"]),
+			await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits","deriveKey"]),
 			// the algorithm which the generated key will be used for
 			{ "name": "AES-GCM", "length": 256},
 			// whether or not the key can be exported
