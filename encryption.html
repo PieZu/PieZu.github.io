@@ -57,21 +57,19 @@ textarea {
 </main>
 
 <script>
+	var key
 	// -- encryption code -- //
-	str = new TextEncoder() // so we can turn strings into arrays that the crypto recognises
-	arr = new TextDecoder()
-
 	async function generateKey(password, salt) {
 		return await crypto.subtle.deriveKey(
 			// encryption method
 			{
 				"name": "PBKDF2",
-				salt: str.encode(salt),
+				salt: bufferise(salt),
 				"iterations": 500000,
 				"hash": "SHA-256"
 			},
 			// the plaintext password we generate the key from. this step is just turning it into an object that deriveKey can read
-			await crypto.subtle.importKey("raw", str.encode(password), "PBKDF2", false, ["deriveBits","deriveKey"]),
+			await crypto.subtle.importKey("raw", bufferise(password), "PBKDF2", false, ["deriveBits","deriveKey"]),
 			// the algorithm which the generated key will be used for
 			{ "name": "AES-GCM", "length": 256},
 			// whether or not the key can be exported
@@ -82,17 +80,17 @@ textarea {
 	}
 
 	async function encrypt(plaintext, key) {
-		let iv = crypto.getRandomValues(new Uint32Array(4))
+		var da_iv = crypto.getRandomValues(new Uint8Array(16))
 		let ciphertext = await crypto.subtle.encrypt(
 			{
 				name: "AES-GCM", // encryption method
-				iv: iv // TypedArray of 16 random bytes
+				iv: da_iv // TypedArray of 16 random bytes
 			},
 			key,
-			str.encode(plaintext)
+			new TextEncoder().encode(plaintext)
 		);
 
-		return {iv: iv, data: ciphertext}
+		return {iv: da_iv, data: ciphertext}
 	}
 
 	async function decrypt(ciphertext, iv, key) {
@@ -101,25 +99,70 @@ textarea {
 			key,
 			ciphertext
 		)
-		return arr.decode(plaintext)
+		return new TextDecoder().decode(plaintext)
 	}
 
 	// -- html stuff -- //
 	output = document.getElementById("ciphertext")
-	input = document.getElementById('plaintext')
+	input = document.getElementById("plaintext")
 	ivElem = document.getElementById("iv")
 	keyElem = document.getElementById("key")
-
+	// make these not cached so u dont get confused that why doesnt work
+	ivElem.value = ""
 	
-	function stringise(arraybuffer) {
-		return [...new Uint8Array(arraybuffer)].map(n=>String.fromCharCode(n)).join('') // Uint32Array wont decode properly prob bc utf stuff. Uint16Array works rlly nicely, except only on even lengths :/ o well i think they still store in basically the same # of bits so yeah.
+	// converting from arraybuffer to string and vice versa so we can copy&paste from the format the crypto gives us
+	char = "#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_{|}~ abcdefghijklmnopqrstuvwxyzÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ" // 128 of the 189 or so printable fromCharCode < 2**8 (ascii?)
+
+	function stringise(arraybuffer) { // convert an arraybuffer into a copy&pastable string
+		// so like basically start with a polyfill for making a Uint7Array from Uint8Array cuz we only using 2**7 printable characters
+		view = new Uint8Array(arraybuffer)
+		// 0000000 0111111 1122222 2223333 3333444 4444455 5555556 6666666 7777777 7888888...
+		Uint7array = []
+		let loops = Math.ceil(view.length * 8 / 7) // cache the number of times we need to loop.. also so we dont have to do complex thingies
+		for (let i=0, offset=0; i<loops; i++) {
+			if (i%8 == 0 && i != 0) offset--	// every time we take a slice of 7, we become +1 out of sync with the slices of 8 of the Uint8Array. Every 8 loops this causes us to become behind by a full slice so when that happens we push the offset back so we can select the main slice each time.
+			Uint7array.push(
+							(view[i+offset] 	// take the 8bit slice at [i] + offset so we can set it back
+								>>  i%8 +1) 	// then cut off the ones at the right that flow into next 7slice
+							+ (view[i+offset-1] // then bring in the previous 8slice
+								<<  7- i%8) 	// but pushed back so it lines up with the current slice thing just behind it they dont overlap
+							&0b1111111 			// then mask it by ANDng 7 1s so like we only care about the last 7 binary digits 
+							)
+		}
+
+		// now just make that into characters
+		return Uint7array.map(n=>char[n]).join('')
 	}
+
 	function bufferise(string) {
-		return new Uint8Array(string.split('').map(c=>c.charCodeAt(0))).buffer
+		string = string.split('').map(c=>char.indexOf(c))
+
+		var arraybuffer = new ArrayBuffer(Math.floor((string.length*7)/8))
+		var view = new Uint8Array(arraybuffer)
+
+		var carryover = 0
+		var offset = 0
+		for (let i=0; i<view.length +1; i++) {
+			let splitPoint = i%7
+
+			carryover += string[i+offset] >> (7-splitPoint)
+			view[i-1] = carryover
+
+			carryover = string[i+offset] << splitPoint+1
+			carryover &=0b11111111
+
+			if (splitPoint==0 && i!=0) {
+				view[i-1] = string[i+offset] + (string[i+offset-1] << 7) &0b11111111
+				offset++
+				carryover = (string[i+offset] <<1) 
+			}
+		}
+		//view[view.length] = carryover
+		return view.buffer
 	}
 
 	// its intentionally resource-intensive to generate keys, so we want to avoid making them on intemediary keystrokes
-	var password, 
+	var password, key,
 		generating_password = new_to_gen = false
 
 	async function genKey() {
@@ -133,7 +176,7 @@ textarea {
 			password = document.getElementById('password').value
 			keyElem.value = "..."
 			key = await generateKey(password, salt)
-			keyElem.value = (await crypto.subtle.exportKey('jwk', key)).k
+			keyElem.value = (await crypto.subtle.exportKey('jwk', key)).k  // just a representation to show its changing each time
 			generating_password = false
 
 			if (new_to_gen) { // if a new one's come up in the time
@@ -143,8 +186,8 @@ textarea {
 	}
 
 	keyElem.value = '...'
-	generateKey(document.getElementById('password').value, document.getElementById('salt').value).then(async key=>{
-		keyElem.value = (await crypto.subtle.exportKey('jwk', key)).k;
+	generateKey(document.getElementById('password').value, document.getElementById('salt').value).then(async key_obj=>{
+		keyElem.value = (await crypto.subtle.exportKey('jwk', key_obj)).k;
 		[...document.getElementsByTagName("input"), ...document.getElementsByTagName("textarea")].forEach(element=>
 			element.addEventListener('input', async e=>{
 				switch (e.target.id) {
@@ -153,13 +196,14 @@ textarea {
 						password = document.getElementById('password').value
 						salt = document.getElementById('salt').value
 
-						await genKey()
+						key = await genKey()
 					case 'plaintext':
-						plaintext = input.value
-						encrypted = await encrypt(plaintext, key)
+						let bruh_moment = await encrypt(document.getElementById('plaintext').value, key)
 
-						output.value = stringise(encrypted.data)
-						ivElem.value = stringise(encrypted.iv.buffer) // just a representation to show its changing each time
+						ciphertext = bruh_moment.data
+						output.value = stringise(ciphertext)
+						iv = bruh_moment.iv.buffer
+						ivElem.value = stringise(iv)
 
 						break;
 					case 'iv':
@@ -168,11 +212,12 @@ textarea {
 						ciphertext = bufferise(output.value)
 
 						try {
-							input.value = await decrypt(ciphertext, iv, key)
+							input.value = await decrypt(bufferise(document.getElementById('ciphertext').value), bufferise(document.getElementById('iv').value), key)
+						} catch(e) {
+							console.log(JSON.stringify(e), e)
+							input.value = "[error decrypting :c] "+e
 						}
-						catch(e) {
-							input.value = "[error decrypting]"
-						}
+						
 
 				}
 			}))
