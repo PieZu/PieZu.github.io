@@ -26,10 +26,10 @@
 
 			
 			.dropdown { display: none; }
-			.section:hover .dropdown { display: block; }
+			.section:hover>.dropdown { display: block; }
 
 			.dropdown a {
-				display: block;
+				display:block;
 				text-align: left;
 				font-size: 1em;
 				text-decoration: none;
@@ -45,25 +45,17 @@
 				top: -40px;
 				width: 55%;
 			}
-			.expanded .dropdown a 		{ display: none; }
-			.expanded:hover .dropdown a { display: block; }
-			.expanded .dropdown .expanded .dropdown a 		{ display: none; }
-			.expanded .dropdown .expanded:hover .dropdown a { display: block; }
-			.expanded .dropdown .expanded .dropdown .expanded .dropdown a 		{ display: none; }
-			.expanded .dropdown .expanded .dropdown .expanded:hover .dropdown a { display: block; }
+			.expanded > .dropdown { display: none; }
+			.expanded:hover > .dropdown { display: block; }
 
 			/* colors */
-			#code .title { background-color: hsl(180, 66%, 82%); }
-			#art  .title { background-color: hsl(90,  66%, 82%); }
-			#word .title { background-color: hsl(290, 66%, 82%); }
+			#code {--hue: 180; }
+			#art  {--hue:  90; }
+			#word {--hue: 290; }
 
-			#code .dropdown a { background-color: hsl(180, 33%, 95%); }
-			#art  .dropdown a { background-color: hsl(90,  33%, 95%); }
-			#word .dropdown a { background-color: hsl(290, 33%, 95%); }
-			
-			#code .dropdown a:hover { background-color: hsl(180, 33%, 88%); }
-			#art  .dropdown a:hover { background-color: hsl(90,  33%, 88%); }
-			#word .dropdown a:hover { background-color: hsl(290, 33%, 88%); }
+			.title { background-color: hsl(var(--hue), 66%, 82%); }
+			a { background-color: hsl(var(--hue), 33%, 95%); }
+			a:hover { background-color: hsl(var(--hue), 33%, 88%); }
 
 
 			main {
