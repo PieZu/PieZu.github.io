@@ -12,7 +12,6 @@
 
 			.section {
 				text-transform: lowercase;
-
 				width: 31%;
 				margin: 1%;
 				height: 99px;
@@ -26,7 +25,7 @@
 
 			
 			.dropdown { display: none; }
-			.section:hover>.dropdown { display: block; }
+			.section:hover>.dropdown, .section:focus-within>.dropdown { display: block; }
 
 			.dropdown a {
 				display:block;
@@ -45,16 +44,16 @@
 				top: -40px;
 				width: 55%;
 			}
-			.expanded > .dropdown { display: none; }
-			.expanded:hover > .dropdown { display: block; }
+			.expanded>.dropdown { display: none; }
+			.expanded:hover>.dropdown, .expanded:focus-within>.dropdown { display: block; }
 
 			/* colors */
 			#code {--hue: 180; }
 			#art  {--hue:  90; }
 			#word {--hue: 290; }
 
-			.title { background-color: hsl(var(--hue), 66%, 82%); }
-			a { background-color: hsl(var(--hue), 33%, 95%); }
+			.title  { background-color: hsl(var(--hue), 66%, 82%); }
+			a 		{ background-color: hsl(var(--hue), 33%, 95%); }
 			a:hover { background-color: hsl(var(--hue), 33%, 88%); }
 
 
@@ -83,7 +82,7 @@
 			<div class="ribbon">
 
 				<div class="section" id="code">
-					<div class="title">Code</div>
+					<div class="title" tabindex=0>Code</div>
 					<div class="dropdown">
 						<div class="expanded">
 							<a href="../tp/index.html">toki pona</a>
@@ -100,7 +99,7 @@
 						<a href="bots.html">discord</a>
 
 						<div class="expanded">
-							<a>misc</a>
+							<a tabindex=0>misc</a>
 							<div class="dropdown">
 								<a href="js/index.html">js</a>
 								<a href="py/index.html">py</a>
@@ -111,7 +110,7 @@
 				</div>
 				
 				<div class="section" id="art">
-					<div class="title">Art</div>
+					<div class="title" tabindex=0>Art</div>
 					<div class="dropdown">
 						<a href="art/videos.html">videos</a>
 						<a href="https://elvyphie.bandcamp.com/">music</a>
@@ -119,26 +118,26 @@
 						<a href="art/glitchart.html" class="personal">glitchart</a>
 						<a href="art/emoji.html">emote edits</a>
 
-						<div class="expanded"> <a> owo </a> <div class="dropdown">
+						<div class="expanded"> <a tabindex=0> owo </a> <div class="dropdown">
 							
-							<div class="expanded"> <a> what's this? </a> <div class="dropdown">
-								<div class="expanded"> <a> > idk </a> <div class="dropdown"> 
+							<div class="expanded"> <a tabindex=0> what's this? </a> <div class="dropdown">
+								<div class="expanded"> <a tabindex=0> > idk </a> <div class="dropdown"> 
 									<a href="../uwu.html"> ;3 </a>
 								</div></div>
 								
-								<div class="expanded"> <a> > art..? </a> <div class="dropdown"> 
+								<div class="expanded"> <a tabindex=0> > art..? </a> <div class="dropdown"> 
 									<a href="../uwu.html"> ok </a>
 								</div></div>
 								
-								<div class="expanded"> <a href=""> > broken </a> <div class="dropdown"> 
-									<a> pog </a>
+								<div class="expanded"> <a href="" tabindex=0> > broken </a> <div class="dropdown"> 
+									<a tabindex=0> pog </a>
 								</div></div>
 							
 							</div> </div>
 
-							<div class="expanded"> <a> uwu </a> <div class="dropdown"> 
-								<a> uwu </a>
-								<div class="expanded"> <a> uwu </a> <div class="dropdown"> 
+							<div class="expanded"> <a tabindex=0> uwu </a> <div class="dropdown"> 
+								<a tabindex=0> uwu </a>
+								<div class="expanded"> <a tabindex=0> uwu </a> <div class="dropdown"> 
 									<a href="easteregg.html"> owo </a>
 									<a href=""> uwu </a>
 								</div></div>
@@ -151,7 +150,7 @@
 				</div>
 
 				<div class="section" id="word">
-					<div class="title">Words</div>
+					<div class="title" tabindex=0>Words</div>
 					<div class="dropdown">
 						<a href="../tp/waleja.html">toki pona</a>
 						<a href="ctf.html">CTF Writeups</a>
