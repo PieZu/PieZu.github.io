@@ -38,10 +38,14 @@
 				color:black;
 			}
 
-			.expanded .dropdown {
+			.expanded { /* so the dropdown can position:absolute relative to it */
 				position: relative;
+			}
+
+			.expanded .dropdown {
+				position: absolute;
 				left: 100%;
-				top: -40px;
+				top: 0px;
 				width: 55%;
 			}
 			.expanded>.dropdown { display: none; }
