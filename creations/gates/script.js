@@ -6,7 +6,7 @@ ctx = canvas.getContext('2d')
 canvas.width = window.innerWidth
 canvas.height = window.innerHeight
 
-const FONT_HEIGHT = 20
+var FONT_HEIGHT = 20
 
 const PALLETE = {
 	background: "#333",
@@ -18,16 +18,18 @@ const PALLETE = {
 	},
     topbar: {
         background: "#272727",
-        text: "#fff"
+        text: "#fff",
+        font: "24px sans-serif"
     },
     playbar: {
         background: "#111",
-        font: "30px sans-serif"
+        fontSize: 30,
+        fontFamily: "sans-serif"
     }
 }
-
-
 ctx.font = FONT_HEIGHT+"px sans-serif"
+
+playing = false
 
 // https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius) {
@@ -45,16 +47,20 @@ CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, ra
   ctx.fill()
 }
 
-
+var interactive_zones = []
 function render() {
 	// reset
 	ctx.clearRect(0,0, canvas.width, canvas.height)
+    interactive_zones = []
 
     // top bar thing
+    ctx.font = PALLETE.topbar.font
     ctx.fillStyle = PALLETE.topbar.background
     ctx.fillRect(0,0,canvas.width,50)
     ctx.fillStyle = PALLETE.topbar.text
-    ctx.fillText(customBlocks[editing].name, 250 + 30, 30)
+    ctx.fillText(customBlocks[editing].name, 250 + 20, 33)
+
+    interactive_zones.push([250+20-5, 5, ctx.measureText(customBlocks[editing].name).width+10, 50-10, "rename"])
 
 	// sidebar
 	ctx.fillStyle = PALLETE.sidebar.background
@@ -67,12 +73,23 @@ function render() {
     ctx.fillStyle = PALLETE.playbar.background
     ctx.fillRect(0,0,250,50)
 
-    ctx.font = PALLETE.playbar.font
+    ctx.font = `${PALLETE.playbar.fontSize}px ${PALLETE.playbar.fontFamily}`
     ctx.fillStyle = "white"
-    ctx.fillText("▶",15,35)
-    ctx.textAlign = "right"
-    ctx.fillText("➕💾❌",240,35)
-    ctx.textAlign = "left"
+    ctx.fillText("▶⏸"[playing*1],15,35)
+    interactive_zones.push([15 -3,10 -3, PALLETE.playbar.fontSize+6, PALLETE.playbar.fontSize+6, "toggleplay"])
+
+    for (i=0; i<3; i++) {
+        let x = 240-(i+1)*(PALLETE.playbar.fontSize+10)+5
+        ctx.fillText(['❌','💾','➕'][i], x,35)
+        interactive_zones.push([x+5-3, 10-3, PALLETE.playbar.fontSize+6, PALLETE.playbar.fontSize+6, ["clear", "savenew", "createnew"][i]])
+
+    }
+
+
+    ctx.strokeStyle = "red"
+    interactive_zones.forEach(([x,y,w,h])=>{
+        ctx.strokeRect(x,y,w,h)
+    })
 }
 
 SAVED_HEIGHT = 50
@@ -82,12 +99,17 @@ function renderCustom({name}, i) {
     let width = Math.min(ctx.measureText(name).width+SAVED_PADDING+35, 250-SAVED_PADDING*2-SCROLLBAR_WIDTH)
 
 	ctx.fillStyle = PALLETE.sidebar.block
-    let y_position = Math.round(i*SAVED_HEIGHT)-sidebarScroll +SAVED_PADDING
-	ctx.roundRect(SAVED_PADDING, y_position, width, SAVED_HEIGHT-SAVED_PADDING, 9)
+    let y_position = Math.round(i*SAVED_HEIGHT)-sidebarScroll +SAVED_PADDING,
+    dimensions = [SAVED_PADDING, y_position, width, SAVED_HEIGHT-SAVED_PADDING]
+	ctx.roundRect(...dimensions, 9)
+    interactive_zones.push([...dimensions, "dragcustom", i])
 
+    let text_y = Math.round(y_position + (SAVED_HEIGHT-SAVED_PADDING)/2 + FONT_HEIGHT/3)
     ctx.fillStyle = PALLETE.sidebar.text
-    ctx.fillText(name, SAVED_PADDING*2, Math.round(y_position + (SAVED_HEIGHT-SAVED_PADDING)/2 + FONT_HEIGHT/3), width-SAVED_PADDING-35)
-    ctx.fillText("✎", SAVED_PADDING*2 + width-(0.8*SAVED_HEIGHT), Math.round(y_position + (SAVED_HEIGHT-SAVED_PADDING)/2 + FONT_HEIGHT/3))
+    ctx.fillText(name, SAVED_PADDING*2, text_y, width-SAVED_PADDING-35)
+
+    ctx.fillText("✎", SAVED_PADDING*2 + width-(0.8*SAVED_HEIGHT), text_y)
+    interactive_zones.push([SAVED_PADDING*2 + width-(0.8*SAVED_HEIGHT) -2, y_position+FONT_HEIGHT/2 -2, 20 +4, 20 +4, "edit", i])
 }
 
 function renderBlock(x, y, colour) {
@@ -99,5 +121,5 @@ customBlocks = [{name: "== MAIN =="}, {name: "AND"}, {name: "NOT"}, {name: "4 BI
 sidebarScroll = -50
 editing = 0
 
-//setInterval(render, 30)
-render()
+setInterval(render, 30)
+//render()
