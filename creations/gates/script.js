@@ -7,12 +7,11 @@ canvas.width = window.innerWidth
 canvas.height = window.innerHeight
 
 const FONT_HEIGHT = 20
-ctx.font = FONT_HEIGHT+"px sans-serif"
-
 
 const PALLETE = {
 	background: "#333",
 	sidebar: {
+        fontFamily: "sans-serif",
 		background: "#202020",
 		block: "#444",
         text: "#fff"
@@ -20,8 +19,15 @@ const PALLETE = {
     topbar: {
         background: "#272727",
         text: "#fff"
+    },
+    playbar: {
+        background: "#111",
+        font: "30px sans-serif"
     }
 }
+
+
+ctx.font = FONT_HEIGHT+"px sans-serif"
 
 // https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius) {
@@ -53,7 +59,20 @@ function render() {
 	// sidebar
 	ctx.fillStyle = PALLETE.sidebar.background
 	ctx.fillRect(0,0,250,canvas.height)
+
+    ctx.font = `${FONT_HEIGHT}px ${PALLETE.sidebar.fontFamily}`
 	customBlocks.forEach(renderCustom)
+
+    // toolbox bar thing
+    ctx.fillStyle = PALLETE.playbar.background
+    ctx.fillRect(0,0,250,50)
+
+    ctx.font = PALLETE.playbar.font
+    ctx.fillStyle = "white"
+    ctx.fillText("▶",15,35)
+    ctx.textAlign = "right"
+    ctx.fillText("➕💾❌",240,35)
+    ctx.textAlign = "left"
 }
 
 SAVED_HEIGHT = 50
@@ -67,7 +86,7 @@ function renderCustom({name}, i) {
 	ctx.roundRect(SAVED_PADDING, y_position, width, SAVED_HEIGHT-SAVED_PADDING, 9)
 
     ctx.fillStyle = PALLETE.sidebar.text
-    ctx.fillText(name, SAVED_PADDING*2, Math.round(y_position + (SAVED_HEIGHT-SAVED_PADDING)/2 + FONT_HEIGHT/3))
+    ctx.fillText(name, SAVED_PADDING*2, Math.round(y_position + (SAVED_HEIGHT-SAVED_PADDING)/2 + FONT_HEIGHT/3), width-SAVED_PADDING-35)
     ctx.fillText("✎", SAVED_PADDING*2 + width-(0.8*SAVED_HEIGHT), Math.round(y_position + (SAVED_HEIGHT-SAVED_PADDING)/2 + FONT_HEIGHT/3))
 }
 
@@ -77,7 +96,7 @@ function renderBlock(x, y, colour) {
 }
 
 customBlocks = [{name: "== MAIN =="}, {name: "AND"}, {name: "NOT"}, {name: "4 BIT ADDER"}, {name: "SOME REALLY REALLY LONG NAME"}, {name: "."}]
-sidebarScroll = 0
+sidebarScroll = -50
 editing = 0
 
 //setInterval(render, 30)
