@@ -14,6 +14,7 @@ const PALLETE = {
 		fontFamily: "sans-serif",
 		background: "#202020",
 		block: "#444",
+		dragging: "#888",
 		text: "#fff"
 	},
 	topbar: {
@@ -86,6 +87,20 @@ function render() {
 	}
 
 
+	// render when dragging a thing
+	if (dragging) {
+		ctx.fillStyle = PALLETE.sidebar.dragging
+		ctx.font = `${FONT_HEIGHT}px ${PALLETE.sidebar.fontFamily}`
+
+		let block = customBlocks[dragging.id]
+		let width = ctx.measureText(block.name).width + 20
+	
+		ctx.roundRect(mouse.x - dragging.xOffset, mouse.y - dragging.yOffset, width, SAVED_HEIGHT-SAVED_PADDING, 9)
+
+		ctx.fillStyle = PALLETE.sidebar.text
+		ctx.fillText(block.name, mouse.x - dragging.xOffset + SAVED_PADDING, Math.round(mouse.y-dragging.yOffset+ (SAVED_HEIGHT-SAVED_PADDING)/2 + FONT_HEIGHT/3))
+	}
+
 	ctx.strokeStyle = "red"
 	interactive_zones.forEach(([x,y,w,h],i)=>{
 		ctx.strokeStyle = i==mouseover?"green":"red"
@@ -124,13 +139,46 @@ canvas.onmousemove = (e) => {
 	mouse.x = e.clientX
 	mouse.y = e.clientY
 
+	detectMouseover()
+	if (mouseover !== -1) {
+		let selected = interactive_zones[mouseover]
+		switch (selected[4]) {
+
+		}
+	}
+}
+
+mouseselect = -1
+dragging = false
+canvas.onmousedown = (e) => {
+	mouseselect = mouseover
+	selected = interactive_zones[mouseselect]
+	switch (selected[4]) {
+		case "dragcustom":
+			dragging = {id:selected[5], xOffset: mouse.x-selected[0], yOffset: mouse.y-selected[1]}
+	}
+}
+canvas.onmouseup = (e) => {
+	switch (interactive_zones[mouseselect][4]) {
+		case "dragcustom":
+			dragging = false;
+			break;
+
+		default:
+			if (mouseselect == mouseover) {
+
+			}
+	}
+	mouseselect = -1
+}
+
+function detectMouseover() {
 	mouseover = -1
-	for (var i=0; i<interactive_zones.length; i++) {
-		let zone = interactive_zones[i]
+	for (var i=interactive_zones.length; i!=0; i--) {
+		let zone = interactive_zones[i-1]
 		if (contains(zone, mouse)) {
-			mouseover = i
-			//ctx.fillStyle = "blue"
-			//ctx.fillRect(zone[0], zone[1], zone[2], zone[3])
+			mouseover = i-1
+			break;
 		}
 	}
 }
