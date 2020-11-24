@@ -31,7 +31,7 @@ const PALLETE = {
 ctx.font = FONT_HEIGHT+"px sans-serif"
 
 playing = false
-
+var cache 
 // https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius) {
   ctx.beginPath();
@@ -52,7 +52,7 @@ var interactive_zones = []
 function render() {
 	// reset
 	ctx.clearRect(0,0, canvas.width, canvas.height)
-	interactive_zones = []
+	interactive_zones = [[0,0,canvas.width,canvas.height,"none"]]
 
 	// top bar thing
 	ctx.font = PALLETE.topbar.font
@@ -139,9 +139,8 @@ canvas.onmousemove = (e) => {
 	mouse.x = e.clientX
 	mouse.y = e.clientY
 
-	detectMouseover()
-	if (mouseover !== -1) {
-		let selected = interactive_zones[mouseover]
+	if (mouseselect==-1) {
+		let selected = interactive_zones[detectMouseover()]
 		switch (selected[4]) {
 
 		}
@@ -159,17 +158,57 @@ canvas.onmousedown = (e) => {
 	}
 }
 canvas.onmouseup = (e) => {
+	detectMouseover()
+	
+	var selected = interactive_zones[mouseselect]
+	if (mouseselect == mouseover) { // buttons
+		switch (selected[4]) {
+			case "edit":
+				switchTo(selected[5])
+				break;
+			case "toggleplay":
+				playing = playing?false:true
+				break;
+			case "rename":
+				customBlocks[editing].name = prompt('enter new name')
+				break;
+			case "createnew":
+				switchTo(generateNewBlock())
+				break;
+			case "savenew":
+				let newedit = generateNewBlock()
+				customBlocks[newedit] = customBlocks[editing]
+				customBlocks[editing] = cache
+				switchTo(newedit)
+				break;
+			case "clear":
+				if (confirm("are you sure you want to remove everything in this block?")) {
+					// customBlocks[editing].innards = []
+				}
+		}
+	}
 	switch (interactive_zones[mouseselect][4]) {
 		case "dragcustom":
 			dragging = false;
 			break;
 
 		default:
-			if (mouseselect == mouseover) {
 
-			}
 	}
+	
 	mouseselect = -1
+}
+
+function switchTo(n) {
+	// maybe also like save and optomise current block or something idk
+
+	editing = n
+	// then some code to load the new one in
+	cache = JSON.parse(JSON.stringify(customBlocks[editing])) // deep clone it
+}
+
+function generateNewBlock() {
+	return customBlocks.push({name: "new block"})-1
 }
 
 function detectMouseover() {
@@ -181,6 +220,7 @@ function detectMouseover() {
 			break;
 		}
 	}
+	return mouseover
 }
 
 function contains([sx,sy,w,h], {x,y}) {
