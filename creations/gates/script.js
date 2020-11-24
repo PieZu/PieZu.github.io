@@ -28,12 +28,26 @@ const PALLETE = {
 		fontFamily: "sans-serif"
 	}
 }
+const LAYOUT = {
+	sidebar: {
+		width: 250,
+		handlebar: 2
+	},
+	playbar: {
+		width: 250,
+		minwidth: 250
+	}
+}
+
 ctx.font = FONT_HEIGHT+"px sans-serif"
 
 playing = false
 var cache 
 // https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius) {
+  if (width < 0 || height < 0) return
+  radius = Math.min(width, height, radius)
+
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
   ctx.lineTo(x + width - radius, y);
@@ -59,20 +73,21 @@ function render() {
 	ctx.fillStyle = PALLETE.topbar.background
 	ctx.fillRect(0,0,canvas.width,50)
 	ctx.fillStyle = PALLETE.topbar.text
-	ctx.fillText(customBlocks[editing].name, 250 + 20, 33)
+	ctx.fillText(customBlocks[editing].name, LAYOUT.playbar.width + 20, 33)
 
-	interactive_zones.push([250+20-5, 5, ctx.measureText(customBlocks[editing].name).width+10, 50-10, "rename"])
+	interactive_zones.push([LAYOUT.playbar.width+20-5, 5, ctx.measureText(customBlocks[editing].name).width+10, 50-10, "rename"])
 
 	// sidebar
 	ctx.fillStyle = PALLETE.sidebar.background
-	ctx.fillRect(0,0,250,canvas.height)
+	ctx.fillRect(0,0,LAYOUT.sidebar.width,canvas.height)
+	interactive_zones.push([LAYOUT.sidebar.width-LAYOUT.sidebar.handlebar,0, LAYOUT.sidebar.handlebar*2, canvas.height, "sidebarresize"])
 
 	ctx.font = `${FONT_HEIGHT}px ${PALLETE.sidebar.fontFamily}`
 	customBlocks.forEach(renderCustom)
 
 	// toolbox bar thing
 	ctx.fillStyle = PALLETE.playbar.background
-	ctx.fillRect(0,0,250,50)
+	ctx.fillRect(0,0,LAYOUT.playbar.width,50)
 
 	ctx.font = `${PALLETE.playbar.fontSize}px ${PALLETE.playbar.fontFamily}`
 	ctx.fillStyle = "white"
@@ -101,22 +116,23 @@ function render() {
 		ctx.fillText(block.name, mouse.x - dragging.xOffset + SAVED_PADDING, Math.round(mouse.y-dragging.yOffset+ (SAVED_HEIGHT-SAVED_PADDING)/2 + FONT_HEIGHT/3))
 	}
 
-	ctx.strokeStyle = "red"
+	///*
 	interactive_zones.forEach(([x,y,w,h],i)=>{
 		ctx.strokeStyle = i==mouseover?"green":"red"
 		ctx.strokeRect(x,y,w,h)
 	})
+	/**/
 }
 
 SAVED_HEIGHT = 50
 SAVED_PADDING = 10
 SCROLLBAR_WIDTH = 5
-function renderCustom({name}, i) {
-	let width = Math.min(ctx.measureText(name).width+SAVED_PADDING+35, 250-SAVED_PADDING*2-SCROLLBAR_WIDTH)
+function renderCustom({name, core}, i) {
+	let width = Math.min(ctx.measureText(name).width+SAVED_PADDING+35, LAYOUT.sidebar.width-SAVED_PADDING*2-SCROLLBAR_WIDTH)
 
 	ctx.fillStyle = PALLETE.sidebar.block
 	let y_position = Math.round(i*SAVED_HEIGHT)-sidebarScroll +SAVED_PADDING,
-	dimensions = [SAVED_PADDING, y_position, width, SAVED_HEIGHT-SAVED_PADDING]
+	dimensions = [SAVED_PADDING, y_position, width -(26*core), SAVED_HEIGHT-SAVED_PADDING]
 	ctx.roundRect(...dimensions, 9)
 	interactive_zones.push([...dimensions, "dragcustom", i])
 
@@ -124,8 +140,10 @@ function renderCustom({name}, i) {
 	ctx.fillStyle = PALLETE.sidebar.text
 	ctx.fillText(name, SAVED_PADDING*2, text_y, width-SAVED_PADDING-35)
 
-	ctx.fillText("✎", SAVED_PADDING*2 + width-(0.8*SAVED_HEIGHT), text_y)
-	interactive_zones.push([SAVED_PADDING*2 + width-(0.8*SAVED_HEIGHT) -2, y_position+FONT_HEIGHT/2 -2, 20 +4, 20 +4, "edit", i])
+	if (!core) {
+		ctx.fillText("✎", SAVED_PADDING*2 + width-(0.8*SAVED_HEIGHT), text_y)
+		interactive_zones.push([SAVED_PADDING*2 + width-(0.8*SAVED_HEIGHT) -2, y_position+FONT_HEIGHT/2 -2, 20 +4, 20 +4, "edit", i])
+	}
 }
 
 function renderBlock(x, y, colour) {
@@ -141,8 +159,18 @@ canvas.onmousemove = (e) => {
 
 	if (mouseselect==-1) {
 		let selected = interactive_zones[detectMouseover()]
+		canvas.style.cursor = "default"
 		switch (selected[4]) {
-
+			case "sidebarresize":
+				canvas.style.cursor = "ew-resize"
+				break;
+		}
+	} else {
+		switch (interactive_zones[mouseselect][4]) {
+			case "sidebarresize":
+				LAYOUT.sidebar.width = Math.max(mouse.x, LAYOUT.sidebar.handlebar)
+				LAYOUT.playbar.width = Math.max(LAYOUT.sidebar.width, LAYOUT.playbar.minwidth)
+				break;
 		}
 	}
 }
@@ -151,10 +179,11 @@ mouseselect = -1
 dragging = false
 canvas.onmousedown = (e) => {
 	mouseselect = mouseover
-	selected = interactive_zones[mouseselect]
+	var selected = interactive_zones[mouseselect]
 	switch (selected[4]) {
 		case "dragcustom":
 			dragging = {id:selected[5], xOffset: mouse.x-selected[0], yOffset: mouse.y-selected[1]}
+			break;
 	}
 }
 canvas.onmouseup = (e) => {
@@ -208,7 +237,7 @@ function switchTo(n) {
 }
 
 function generateNewBlock() {
-	return customBlocks.push({name: "new block"})-1
+	return customBlocks.push({name: "new block", core:false})-1
 }
 
 function detectMouseover() {
@@ -227,7 +256,7 @@ function contains([sx,sy,w,h], {x,y}) {
 	return (sx<x && x<sx+w && sy<y && y<sy+h)
 }
 
-customBlocks = [{name: "== MAIN =="}, {name: "AND"}, {name: "NOT"}, {name: "4 BIT ADDER"}, {name: "SOME REALLY REALLY LONG NAME"}, {name: "."}]
+customBlocks = [{name: "== MAIN ==", core:false}, {name: "AND", core:true}, {name: "NOT", core:true}, {name: "4 BIT ADDER", core:false}, {name: "SOME REALLY REALLY LONG NAME", core:false}, {name: ".", core:false}]
 sidebarScroll = -50
 editing = 0
 
