@@ -180,11 +180,8 @@ function renderBlock(id, x, y, colour) {
 
 	ctx.roundRect(x, y, width, height, LAYOUT.block.radius).fill()
 	interactive_zones.push([x,y,width,height,"block",id])
-	if (id==INPUT) {
-		ctx.roundRect(x,y,LAYOUT.block.radius+LAYOUT.block.endpoint.radius, height, LAYOUT.block.endpoint.radius).fill()
-	} else if (id==OUTPUT) { // outputs
-		ctx.roundRect(x+width-LAYOUT.block.radius-LAYOUT.block.endpoint.radius,y, LAYOUT.block.radius+LAYOUT.block.endpoint.radius, height, LAYOUT.block.endpoint.radius).fill()
-
+	if (id==INPUT || id==OUTPUT) {
+		ctx.roundRect(x+(id==OUTPUT)*(width-LAYOUT.block.radius-LAYOUT.block.endpoint.radius), y, LAYOUT.block.radius+LAYOUT.block.endpoint.radius, height, LAYOUT.block.endpoint.radius).fill()
 	}
 	// draw name
 	ctx.fillStyle = PALLETE.sidebar.text
@@ -231,6 +228,9 @@ canvas.onmousemove = (e) => {
 				break;
 			case "disabled":
 				canvas.style.cursor = "not-allowed"
+				break;
+			case "rename": 
+				canvas.style.cursor = "text"
 				break;
 		}
 	} else { // draggings
@@ -322,12 +322,12 @@ function switchTo(n) {
 	cache = JSON.parse(JSON.stringify(customBlocks[editing])) // deep clone it
 
 	disabledBlocks = [editing]
-	customBlocks.forEach((block,i)=>{if (block.blocksused.has(editing)) disabledBlocks.push(i)})
+	customBlocks.forEach((block,i)=>{if (block.dependencies.includes(editing)) disabledBlocks.push(i)})
 }
 
 function calculateBlockStats(n) {
 	// function will check how many input & output nodes in current block and what it contains and stuff.. so those things can be dynamically found and used in other stuff yeahh
-	customBlocks[n].blocksused = new Set() // so we cant use this block in other ones and make an infinite loop. sorry :p. set wont be stored in JSON.stringify() cache but its fine cuz we call this whenever we switch so just regen it ye
+	let blocksused = new Set() // so we cant use this block in other ones and make an infinite loop.
 	customBlocks[n].in = 0
 	customBlocks[n].out = 0
 	for (let i=0; i<customBlocks[n].innards.length; i++) {
@@ -335,9 +335,18 @@ function calculateBlockStats(n) {
 			customBlocks[n].in++
 		} else if (customBlocks[n].innards[i].id == OUTPUT) {
 			customBlocks[n].out++
+		} else {
+			blocksused.add(customBlocks[n].innards[i].id)
 		}
-		customBlocks[n].blocksused.add(customBlocks[n].innards[i].id)
 	}
+
+	// now recursive search all the things
+	blocksused.forEach(n=>{
+		customBlocks[n].dependencies.forEach(n=>blocksused.add(n))
+	})
+	customBlocks[n].dependencies = [...blocksused]
+	// now everything dependant on this also needs those new dependencies
+	customBlocks.forEach(block=>{if(block.dependencies.includes(n)) blocksused.forEach(n=>{if (!block.dependencies.includes(n)) block.dependencies.push(n)})})
 }
 
 function generateNewBlock() {
@@ -361,16 +370,17 @@ function contains([sx,sy,w,h], {x,y}) {
 }
 
 customBlocks = [
-	{name: "INPUT", core:true, in:0, out:1, innards: [], blocksused: new Set()},
-	{name: "OUTPUT", core:true, in:1, out:0, innards: [], blocksused: new Set()},
-	{name: "AND", core:true, in:2, out:1, innards: [], blocksused: new Set()},
-	{name: "NOT", core:true, in:1, out:1, innards: [], blocksused: new Set()},
-	{name: "OR", core:false, in:2, out:1, innards: [{"id":0,"x":341,"y":346},{"id":1,"x":712,"y":370},{"id":0,"x":344,"y":394},{"id":2,"x":530,"y":370},{"id":3,"x":608,"y":369},{"id":3,"x":445,"y":346},{"id":3,"x":445,"y":394}], blocksused: new Set()},
-	{name: "4 BIT ADDER", core:false, in:9, out:5, innards: [], blocksused: new Set()},
-	{name: "SOME REALLY REALLY LONG NAME", core:false, in:1, out:1, innards: [], blocksused: new Set()},
+	{name: "INPUT", core:true, in:0, out:1, innards: [], dependencies: []},
+	{name: "OUTPUT", core:true, in:1, out:0, innards: [], dependencies: []},
+	{name: "NAND", core:true, in:2, out:1, innards:[], dependencies: []},
+	{name: "AND", core:false, in:2, out:1, innards: [], dependencies: []}, // a,b -> nand -> not -> output
+	{name: "NOT", core:false, in:1, out:1, innards: [], dependencies: []}, // a ->-> nand -> output
+	{name: "OR", core:false, in:2, out:1, innards: [{"id":0,"x":341,"y":346},{"id":1,"x":712,"y":370},{"id":0,"x":344,"y":394},{"id":4,"x":530,"y":370},{"id":3,"x":608,"y":369},{"id":3,"x":445,"y":346},{"id":3,"x":445,"y":394}], dependencies: []},
+	{name: "4 BIT ADDER", core:false, in:9, out:5, innards: [], dependencies: []},
+	{name: "SOME REALLY REALLY LONG NAME", core:false, in:1, out:1, innards: [], dependencies: []},
 ]
 sidebarScroll = -50
-editing = 4
+editing = 5
 
 var disabledBlocks = [editing]
 
