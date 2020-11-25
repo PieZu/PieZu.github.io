@@ -40,7 +40,11 @@ const PALLETE = {
 		active: "#bbb"
 	},
 	line: {
-		off: "#000",
+		off: "#111",
+		on: "#f00"
+	},
+	bulb: {
+		off: "#111",
 		on: "#f00"
 	}
 }
@@ -68,10 +72,15 @@ const LAYOUT = {
 	},
 	line: {
 		width: 3
+	},
+	bulb: {
+		width: 30,
+		radius: 9
 	}
 }
 
 ctx.font = FONT_HEIGHT+"px sans-serif"
+ctx.lineWidth = LAYOUT.line.width
 
 playing = false
 var cache 
@@ -161,7 +170,7 @@ function render() {
 
 	// render when dragging a thing
 	if (dragging) {
-		renderBlock(dragging.id, mouse.x - dragging.xOffset, mouse.y - dragging.yOffset, PALLETE.sidebar.dragging, dragging.name)
+		renderBlock(dragging.id, mouse.x - dragging.xOffset, mouse.y - dragging.yOffset, PALLETE.sidebar.dragging, dragging.name, dragging_placed===false?undefined:dragging_placed)
 	}
 
 	/*
@@ -200,8 +209,6 @@ function renderCustom({name, core}, i) {
 function renderBlock(id, x, y, colour, customname, instancenum) {
 	var interactive_zones = [] // make a local one so we dont have to actually add them 
 
-	ctx.fillStyle = colour || customBlocks[id]
-
 	let block = customBlocks[id]
 	let nodeCount = Math.max(block.in.length, block.out.length)
 
@@ -210,12 +217,25 @@ function renderBlock(id, x, y, colour, customname, instancenum) {
 	let name = id==OUTPUT||id==INPUT?customname:block.name
 	let width = ctx.measureText(name).width + 20
 	let height = Math.max(LAYOUT.node.padding*nodeCount+SAVED_PADDING, SAVED_HEIGHT-SAVED_PADDING) 
-
+	 // but first, bulb thing
+	 if (id==INPUT || id==OUTPUT) {
+		ctx.fillStyle = instancenum!==undefined&&customBlocks[editing].innards[instancenum].state?PALLETE.bulb.on:PALLETE.bulb.off
+		if (id==INPUT) {
+			ctx.roundRect(x-LAYOUT.bulb.width, y, LAYOUT.bulb.width+LAYOUT.block.endpoint.radius+LAYOUT.bulb.radius, height, LAYOUT.bulb.radius).fill()
+			interactive_zones.push([x-LAYOUT.bulb.width, y, LAYOUT.bulb.width, height, "bulb"])
+		} else { // id==OUTPUT
+			ctx.roundRect(x+width-LAYOUT.block.endpoint.radius-LAYOUT.bulb.radius, y, LAYOUT.bulb.width+LAYOUT.block.endpoint.radius+LAYOUT.bulb.radius, height, LAYOUT.bulb.radius).fill()
+		}
+	 }
+	ctx.fillStyle = colour || customBlocks[id]
 	ctx.roundRect(x, y, width, height, LAYOUT.block.radius).fill()
 	interactive_zones.push([x,y,width,height,"block",id])
+	
+	// special stuff i guess
 	if (id==INPUT || id==OUTPUT) {
+		// less rounded edge
 		ctx.roundRect(x+(id==OUTPUT)*(width-LAYOUT.block.radius-LAYOUT.block.endpoint.radius), y, LAYOUT.block.radius+LAYOUT.block.endpoint.radius, height, LAYOUT.block.endpoint.radius).fill()
-
+		// editable name thing
 		let dimensions = [x +20/2 -2, y+SAVED_PADDING -4, width-20 +2*2, height-SAVED_PADDING*2 +4*2]
 		ctx.fillStyle = PALLETE.block.editablename
 		ctx.fillRect(...dimensions)
@@ -226,7 +246,6 @@ function renderBlock(id, x, y, colour, customname, instancenum) {
 	ctx.fillText(name, x + SAVED_PADDING, Math.round(y+ height/2 + FONT_HEIGHT/3))
 	
 	// draw nodes
-	var radius = 3
 	var disabled = false
 	ctx.fillStyle = PALLETE.node.default
 	if (connecting && (connecting.isFromInput || connecting.from[0]==instancenum || customBlocks[editing].innards[instancenum].leadsTo.includes(connecting.from[0]))) { ctx.fillStyle = PALLETE.node.disabled; disabled=true }
@@ -341,7 +360,8 @@ canvas.onmousedown = (e) => {
 			canvas.style.cursor = "grabbing"
 			dragging = {id:selected[5], xOffset: mouse.x-selected[0], yOffset: mouse.y-selected[1]}
 			if (dragging.id==INPUT||dragging.id==OUTPUT) {
-				dragging.name = dragging_placed!==false?customBlocks[editing].innards[selected[6]].name:verifyName(["INPUT","OUTPUT"][dragging.id], dragging.id==OUTPUT)
+				dragging.name = dragging_placed!==false?customBlocks[editing].innards[selected[6]].name:verifyName(["INPUT","OUTPUT"][dragging.id], dragging.id==OUTPUT);
+				if (dragging_placed) dragging.state = customBlocks[editing].innards[selected[6]].state
 			}
 			break;
 		case "innode":
@@ -385,6 +405,10 @@ canvas.onmouseup = (e) => {
 				if (confirm("are you sure you want to remove everything in this block?")) {
 					customBlocks[editing].innards = []
 				}
+				break;
+			case "bulb":
+				let block = customBlocks[editing].innards[selected[5]]
+				block.state = block.state?false:true
 				break;
 		}
 	}
@@ -509,8 +533,8 @@ customBlocks = [
 	{name: "INPUT", core:true, in:[], out:['input'], innards: [], dependencies: []},
 	{name: "OUTPUT", core:true, in:['output'], out:[], innards: [], dependencies: []},
 	{name: "NAND", core:true, in:['a','b'], out:['out'], innards:[], dependencies: []},
-	{name: "AND", core:false, in:['a','b'], out:['a^b'], innards: [], dependencies: []}, // a,b -> nand -> not -> output
-	{name: "NOT", core:false, in:['a'], out:['¬a'], innards: [], dependencies: []}, // a ->-> nand -> output
+	{name: "AND", core:false, in:['a','b'], out:['a^b'], innards: [{"id":0,"x":381,"y":270,"name":"a","links":[[[2,0],[2,0]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,26.5],[31.115,20]]},{"id":0,"x":381,"y":314,"name":"b","links":[[[2,1]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,26.5],[31.115,20]]},{"id":2,"x":429,"y":290,"links":[[[4,0]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,13.5],[76.68,20]]},{"id":1,"x":600,"y":289,"name":"a^b","links":[],"outputStates":[],"leadsTo":[],"nodeOffset":[[0,20],[102.22,26.5]]},{"id":4,"x":520,"y":289,"links":[[[3,0]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,20],[62.22,20]]}], dependencies: []}, // a,b -> nand -> not -> output
+	{name: "NOT", core:false, in:['a'], out:['¬a'], innards: [{"id":0,"x":370,"y":238,"name":"a","links":[[[1,1],[1,0]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,26.5],[31.115,20]]},{"id":2,"x":423,"y":237,"links":[[[2,0]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,13.5],[76.68,20]]},{"id":1,"x":519,"y":237,"name":"¬a","links":[],"outputStates":[],"leadsTo":[],"nodeOffset":[[0,20],[42.8,26.5]]}], dependencies: []}, // a ->-> nand -> output
 	{name: "OR", core:false, in:['a','b'], out:['a∨b'], innards: [], dependencies: []},
 ]
 sidebarScroll = -50
