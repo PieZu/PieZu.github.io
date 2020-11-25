@@ -18,7 +18,7 @@ const PALLETE = {
 		block: "#444",
 		dragging: "#888",
 		text: "#fff",
-		disabled: "#1c1c1c"
+		disabled: "#1c1c1c",
 	},
 	topbar: {
 		background: "#272727",
@@ -31,7 +31,8 @@ const PALLETE = {
 		fontFamily: "sans-serif"
 	},
 	block: {
-		color: "#666"
+		color: "#666",
+		editablename: "#555"
 	}
 }
 const LAYOUT = {
@@ -90,7 +91,7 @@ function render() {
 
 	// draw all the inner block things
 	customBlocks[editing].innards.forEach((block,i)=>{
-		renderBlock(block.id, block.x, block.y, PALLETE.block.color).forEach(([...args])=>interactive_zones.push([...args, i]))
+		renderBlock(block.id, block.x, block.y, PALLETE.block.color, block.name).forEach(([...args])=>interactive_zones.push([...args, i]))
 	})
 
 	// top bar thing
@@ -129,7 +130,7 @@ function render() {
 
 	// render when dragging a thing
 	if (dragging) {
-		renderBlock(dragging.id, mouse.x - dragging.xOffset, mouse.y - dragging.yOffset, PALLETE.sidebar.dragging)
+		renderBlock(dragging.id, mouse.x - dragging.xOffset, mouse.y - dragging.yOffset, PALLETE.sidebar.dragging, dragging.name)
 	}
 
 	/*
@@ -165,7 +166,7 @@ function renderCustom({name, core}, i) {
 	ctx.restore(noclip) // reset it back to nothing
 }
 
-function renderBlock(id, x, y, colour) {
+function renderBlock(id, x, y, colour, customname) {
 	var interactive_zones = [] // make a local one so we dont have to actually add them 
 
 	ctx.fillStyle = colour || customBlocks[id]
@@ -175,17 +176,23 @@ function renderBlock(id, x, y, colour) {
 
 	// draw background thing
 	ctx.font = `${FONT_HEIGHT}px ${PALLETE.sidebar.fontFamily}`
-	let width = ctx.measureText(block.name).width + 20
+	let name = id==OUTPUT||id==INPUT?customname:block.name
+	let width = ctx.measureText(name).width + 20
 	let height = Math.max(LAYOUT.block.node.padding*nodeCount+SAVED_PADDING, SAVED_HEIGHT-SAVED_PADDING) 
 
 	ctx.roundRect(x, y, width, height, LAYOUT.block.radius).fill()
 	interactive_zones.push([x,y,width,height,"block",id])
 	if (id==INPUT || id==OUTPUT) {
 		ctx.roundRect(x+(id==OUTPUT)*(width-LAYOUT.block.radius-LAYOUT.block.endpoint.radius), y, LAYOUT.block.radius+LAYOUT.block.endpoint.radius, height, LAYOUT.block.endpoint.radius).fill()
+
+		let dimensions = [x +20/2 -2, y+SAVED_PADDING -4, width-20 +2*2, height-SAVED_PADDING*2 +4*2]
+		ctx.fillStyle = PALLETE.block.editablename
+		ctx.fillRect(...dimensions)
+		interactive_zones.push([...dimensions, "editname", id])
 	}
 	// draw name
 	ctx.fillStyle = PALLETE.sidebar.text
-	ctx.fillText(block.name, x + SAVED_PADDING, Math.round(y+ height/2 + FONT_HEIGHT/3))
+	ctx.fillText(name, x + SAVED_PADDING, Math.round(y+ height/2 + FONT_HEIGHT/3))
 	
 	// draw nodes
 	var radius = 3
@@ -211,7 +218,7 @@ function drawNode(x,y) { // just a D.R.Y. thing
 
 mouse = {x:0, y:0}
 mouseover = -1
-canvas.onmousemove = (e) => {
+mousemove = (e) => {
 	mouse.x = e.clientX
 	mouse.y = e.clientY
 
@@ -229,6 +236,7 @@ canvas.onmousemove = (e) => {
 			case "disabled":
 				canvas.style.cursor = "not-allowed"
 				break;
+			case "editname":
 			case "rename": 
 				canvas.style.cursor = "text"
 				break;
@@ -246,6 +254,7 @@ canvas.onmousemove = (e) => {
 		}
 	}
 }
+canvas.onmousemove = mousemove
 
 mouseselect = -1
 dragging = dragging_placed = false
@@ -259,6 +268,9 @@ canvas.onmousedown = (e) => {
 		case "dragcustom":
 			canvas.style.cursor = "grabbing"
 			dragging = {id:selected[5], xOffset: mouse.x-selected[0], yOffset: mouse.y-selected[1]}
+			if (dragging.id==INPUT||dragging.id==OUTPUT) {
+				dragging.name = dragging_placed!==false?customBlocks[editing].innards[selected[6]].name:verifyName(["INPUT","OUTPUT"][dragging.id], dragging.id==OUTPUT)
+			}
 			break;
 	}
 }
@@ -275,7 +287,13 @@ canvas.onmouseup = (e) => {
 				playing = playing?false:true
 				break;
 			case "rename":
-				customBlocks[editing].name = prompt('enter new name')
+				newName = prompt('enter new name')
+				if (newName!==null)	customBlocks[editing].name = prompt('enter new name')
+				break;
+			case "editname":
+				newName = prompt('enter new name')
+				if (newName!==null) customBlocks[editing].innards[selected[6]].name = verifyName(newName, selected[5])
+					// also edit any references to it in links and stuff
 				break;
 			case "createnew":
 				switchTo(generateNewBlock())
@@ -296,6 +314,7 @@ canvas.onmouseup = (e) => {
 		case "block":
 			if (mouse.x <= LAYOUT.sidebar.width) { // put back
 				customBlocks[editing].innards.splice(dragging_placed,1)
+				// also delete any references in links anywhere
 			}
 			dragging = dragging_placed = false;
 			break;
@@ -303,16 +322,35 @@ canvas.onmouseup = (e) => {
 			// place block
 			if (mouse.x > LAYOUT.sidebar.width) { // on stage
 				canvas.style.cursor = "grab"
-				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset, y:mouse.y-dragging.yOffset})
-			}	
+				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset, y:mouse.y-dragging.yOffset, name:dragging.name})
+			} else { canvas.style.cursor = "default" }
 			dragging = false;
-			break;
+			/*
+			e.clientX = mouse.x
+			e.clientY = mouse.y
+			mousemove(e)
+			*/break;
 
 		default:
 
 	}
 	
 	mouseselect = -1
+}
+
+function verifyName(name, isOut) { // ensure name of input/output block is unique within custom block.. if not, append letters to make it
+	let [_, pref, num] = name.match(/(.+?)(\d*)$/)
+	let taken = customBlocks[editing].innards.filter(x=>x.id==isOut*OUTPUT).map(x=>x.name)
+	while (taken.includes(name)) {
+		if (num=="") {
+			pref += " "
+			num = 2
+		} else {
+			num = Number(num) + 1
+		}
+		name = pref+num
+	} 
+	return name
 }
 
 function switchTo(n) {
@@ -350,7 +388,7 @@ function calculateBlockStats(n) {
 }
 
 function generateNewBlock() {
-	return customBlocks.push({name: "new block", core:false, in:1, out:1, innards: []})-1
+	return customBlocks.push({name: "new block", core:false, in:1, out:1, innards: [{"id":0,"x":380,"y":351,"name":"INPUT"},{"id":1,"x":790,"y":348,"name":"OUTPUT"}], dependencies: []})-1
 }
 
 function detectMouseover() {
@@ -375,7 +413,7 @@ customBlocks = [
 	{name: "NAND", core:true, in:2, out:1, innards:[], dependencies: []},
 	{name: "AND", core:false, in:2, out:1, innards: [], dependencies: []}, // a,b -> nand -> not -> output
 	{name: "NOT", core:false, in:1, out:1, innards: [], dependencies: []}, // a ->-> nand -> output
-	{name: "OR", core:false, in:2, out:1, innards: [{"id":0,"x":341,"y":346},{"id":1,"x":712,"y":370},{"id":0,"x":344,"y":394},{"id":4,"x":530,"y":370},{"id":3,"x":608,"y":369},{"id":3,"x":445,"y":346},{"id":3,"x":445,"y":394}], dependencies: []},
+	{name: "OR", core:false, in:2, out:1, innards: [{id:0,x:341,y:346,name:'a'},{id:1,x:712,y:370,name:'out'},{id:0,x:344,y:394,name:'b'},{id:4,x:530,y:370},{id:3,x:608,y:369},{id:3,x:445,y:346},{id:3,x:445,y:394}], dependencies: []},
 	{name: "4 BIT ADDER", core:false, in:9, out:5, innards: [], dependencies: []},
 	{name: "SOME REALLY REALLY LONG NAME", core:false, in:1, out:1, innards: [], dependencies: []},
 ]
