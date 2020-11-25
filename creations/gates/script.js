@@ -9,6 +9,7 @@ canvas.height = window.innerHeight
 var FONT_HEIGHT = 20
 const INPUT = 0
 const OUTPUT = 1
+const NAND = 2
 
 const PALLETE = {
 	background: "#333",
@@ -105,6 +106,11 @@ CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, ra
 
 var interactive_zones = []
 function render() {
+	if (playing) {
+		calculateBlockStats(editing)
+		execBlock(editing)
+	}
+
 	// reset
 	ctx.clearRect(0,0, canvas.width, canvas.height)
 	interactive_zones = [[0,0,canvas.width,canvas.height,"none"]]
@@ -367,7 +373,7 @@ canvas.onmousedown = (e) => {
 		case "innode":
 		case "outnode":
 			connecting = {from: [selected[6], selected[5]], sx:selected[0]+selected[2]/2, sy:selected[1]+selected[3]/2, isFromInput: selected[4]=="innode", to:false}
-			console.log(JSON.stringify(connecting).replace(/\\/g,""))
+			//console.log(JSON.stringify(connecting).replace(/\\/g,""))
 			break;
 	}
 }
@@ -429,7 +435,14 @@ canvas.onmouseup = (e) => {
 			// place block
 			if (mouse.x > LAYOUT.sidebar.width) { // on stage
 				canvas.style.cursor = "grab"
-				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset, y:mouse.y-dragging.yOffset, name:dragging.name, links:JSON.parse("["+"[],".repeat(customBlocks[dragging.id].out.length).slice(0,-1)+"]"), outputStates: Array(customBlocks[dragging.id].out.length), leadsTo:[], nodeOffset:[[0,0],[0,0]]})
+				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset, y:mouse.y-dragging.yOffset, name:dragging.name, 
+					links:JSON.parse("["+"[],".repeat(customBlocks[dragging.id].out.length).slice(0,-1)+"]"), 
+					inputStates: Array(customBlocks[dragging.id].in.length), 
+					outputStates: Array(customBlocks[dragging.id].out.length), 
+					leadsTo:[], 
+					nodeOffset:[[0,0],[0,0]],
+					inputted: 0
+				})
 			} else { canvas.style.cursor = "default" }
 			dragging = false;
 			break;
@@ -507,10 +520,13 @@ function calculateBlockStats(n) {
 	customBlocks[n].dependencies = [...blocksused]
 	// now everything dependant on this also needs those new dependencies
 	customBlocks.forEach(block=>{if(block.dependencies.includes(n)) blocksused.forEach(n=>{if (!block.dependencies.includes(n)) block.dependencies.push(n)})})
+
+	// also make sure to reset all outConnections
+	customBlocks[n].innards.forEach(block=>block.inputted=0)
 }
 
 function generateNewBlock() {
-	return customBlocks.push({name: "new block", core:false, in:["INPUT"], out:["OUTPUT"], innards: [{"id":0,"x":380,"y":351,"name":"INPUT"},{"id":1,"x":790,"y":348,"name":"OUTPUT"}], dependencies: []})-1
+	return customBlocks.push({name: "new block", core:false, in:["INPUT"], out:["OUTPUT"], innards: [{id:0,x:405,y:265,name:"INPUT",links:[[]],inputStates:[],outputStates:[null],leadsTo:[],nodeOffset:[[0,26.5],[80,20]],inputted:0},{id:1,x:1004,y:265,name:"OUTPUT",links:[],inputStates:[null],outputStates:[],leadsTo:[],nodeOffset:[[0,20],[102.21666717529297,26.5]],inputted:0}], dependencies: []})-1
 }
 
 function detectMouseover() {
@@ -533,8 +549,8 @@ customBlocks = [
 	{name: "INPUT", core:true, in:[], out:['input'], innards: [], dependencies: []},
 	{name: "OUTPUT", core:true, in:['output'], out:[], innards: [], dependencies: []},
 	{name: "NAND", core:true, in:['a','b'], out:['out'], innards:[], dependencies: []},
-	{name: "AND", core:false, in:['a','b'], out:['a^b'], innards: [{"id":0,"x":381,"y":270,"name":"a","links":[[[2,0],[2,0]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,26.5],[31.115,20]]},{"id":0,"x":381,"y":314,"name":"b","links":[[[2,1]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,26.5],[31.115,20]]},{"id":2,"x":429,"y":290,"links":[[[4,0]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,13.5],[76.68,20]]},{"id":1,"x":600,"y":289,"name":"a^b","links":[],"outputStates":[],"leadsTo":[],"nodeOffset":[[0,20],[102.22,26.5]]},{"id":4,"x":520,"y":289,"links":[[[3,0]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,20],[62.22,20]]}], dependencies: []}, // a,b -> nand -> not -> output
-	{name: "NOT", core:false, in:['a'], out:['¬a'], innards: [{"id":0,"x":370,"y":238,"name":"a","links":[[[1,1],[1,0]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,26.5],[31.115,20]]},{"id":2,"x":423,"y":237,"links":[[[2,0]]],"outputStates":[null],"leadsTo":[],"nodeOffset":[[0,13.5],[76.68,20]]},{"id":1,"x":519,"y":237,"name":"¬a","links":[],"outputStates":[],"leadsTo":[],"nodeOffset":[[0,20],[42.8,26.5]]}], dependencies: []}, // a ->-> nand -> output
+	{name: "AND", core:false, in:['a','b'], out:['a^b'], innards: [{id:0,x:423,y:202,name:"a",links:[[[2,0]]],inputStates:[],outputStates:[null],leadsTo:[],nodeOffset:[[0,26.5],[31.12,20]],inputted:0},{id:0,x:426,y:250,name:"b",links:[[[2,1]]],inputStates:[],outputStates:[null],leadsTo:[],nodeOffset:[[0,26.5],[31.115,20]],inputted:0},{id:2,x:502,y:227,links:[[[3,0],[4,0]]],inputStates:[null,null],outputStates:[null],leadsTo:[],nodeOffset:[[0,13.5],[76.68,20]],inputted:0},{id:1,x:696,y:228,name:"a^b",links:[],inputStates:[null],outputStates:[],leadsTo:[],nodeOffset:[[0,20],[51.62,26.5]],inputted:0},{id:4,x:611,y:229,links:[[[3,0]]],inputStates:[null],outputStates:[null],leadsTo:[],nodeOffset:[[0,20],[62.22,20]],inputted:0}], dependencies: [4]},
+	{name:"NOT",core:false,in:["a"],out:["¬a"],innards:[{id:0,x:310,y:280,name:"a",links:[[[1,0],[1,1]]],inputStates:[],outputStates:[null],leadsTo:[],nodeOffset:[[0,26.5],[31.115,20]],inputted:0},{id:2,x:367,y:280,links:[[[2,0]]],inputStates:[null,null],outputStates:[null],leadsTo:[],nodeOffset:[[0,13.5],[76.68,20]],inputted:0},{id:1,x:468,y:280,name:"¬a",links:[],inputStates:[null],outputStates:[],leadsTo:[],nodeOffset:[[0,20],[42.8,26.5]],inputted:0}],dependencies:[2]},
 	{name: "OR", core:false, in:['a','b'], out:['a∨b'], innards: [], dependencies: []},
 ]
 sidebarScroll = -50
@@ -544,3 +560,62 @@ var disabledBlocks = [editing]
 
 setInterval(render, 30)
 //render()
+
+
+function execBlock(id, inputs) {
+	//console.log(id,inputs)
+	if (customBlocks[id].core) { // atomic blocks. executed behind the scenes.
+		switch (id) {
+			case NAND:
+				return [!(inputs[0]&&inputs[1])]
+			default:
+				throw Error(`Attempted to execute atomic block #${id} (${block.name}) which does not have any executable code. :c`)
+		}
+	} else {
+		if (inputs) var block = JSON.parse(JSON.stringify(customBlocks[id])) // gotta make like a clone i guess
+		else var block = customBlocks[id]
+
+		var allResults = []
+		for (let i=0; i<block.in.length; i++) {
+			var start = block.innards.find(x=>x.id==INPUT && x.name == block.in[i])
+			if (inputs) start.state = inputs[i]
+			// now we want to distribute to everything!!!
+			for (let j=0; j<start.links.length; j++) {
+				for (let k=0; k<start.links[j].length; k++) {
+					allResults.push(...distribute(block, start.links[j][k], start.state))
+				}
+			}
+		}
+		//console.log('--- results ---')
+		var outs = []
+		allResults.forEach(([key, value])=>{
+			outs[block.out.findIndex(x=>x==key)] = value
+		})
+		return outs
+	}
+}
+
+function distribute(block, [instance, node], value) {
+	//console.log("distribute()",instance,node,value)
+
+	if (block.innards[instance].id == OUTPUT) { block.innards[instance].state=value; return [[block.innards[instance].name, value]] }
+	block.innards[instance].inputStates[node] = value
+	if (++block.innards[instance].inputted == block.innards[instance].inputStates.length) {
+		let outs = execBlock(block.innards[instance].id, block.innards[instance].inputStates)
+		block.innards[instance].outputStates = outs
+
+		var allResults = []
+
+		let links = block.innards[instance].links
+		for (let i=0; i<links.length; i++) {
+			for (let j=0; j<links[i].length; j++) {
+				let res = distribute(block, links[i][j], outs[i])
+				allResults.push(...res)
+			}
+		}
+
+		return allResults
+	}
+
+	return []
+}
