@@ -82,7 +82,9 @@ function render() {
 	interactive_zones = [[0,0,canvas.width,canvas.height,"none"]]
 
 	// draw all the inner block things
-	customBlocks[editing].innards.forEach(block=>renderBlock(block.id, block.x, block.y, PALLETE.block.color))
+	customBlocks[editing].innards.forEach((block,i)=>{
+		renderBlock(block.id, block.x, block.y, PALLETE.block.color).forEach(([...args])=>interactive_zones.push([...args, i]))
+	})
 
 	// top bar thing
 	ctx.font = PALLETE.topbar.font
@@ -157,6 +159,8 @@ function renderCustom({name, core}, i) {
 }
 
 function renderBlock(id, x, y, colour) {
+	var interactive_zones = [] // make a local one so we dont have to actually add them 
+
 	ctx.fillStyle = colour || customBlocks[id]
 
 	let block = customBlocks[id]
@@ -168,16 +172,32 @@ function renderBlock(id, x, y, colour) {
 	let height = Math.max(LAYOUT.block.node.padding*nodeCount+SAVED_PADDING, SAVED_HEIGHT-SAVED_PADDING) 
 
 	ctx.roundRect(x, y, width, height, 9).fill()
+	interactive_zones.push([x,y,width,height,"block",id])
+
 	// draw name
 	ctx.fillStyle = PALLETE.sidebar.text
 	ctx.fillText(block.name, x + SAVED_PADDING, Math.round(y+ height/2 + FONT_HEIGHT/3))
-	// draw pipes
+	
+	// draw nodes
 	var radius = 3
 	ctx.fillStyle = LAYOUT.block.node.color
 	let nodeOffset = height/2 - LAYOUT.block.node.padding*(block.in-1)/2
-	for (let i=0; i<block.in; i++) { ctx.beginPath(); ctx.arc(x, y + nodeOffset + LAYOUT.block.node.padding*i, LAYOUT.block.node.radius, 0, 2 * Math.PI) ; ctx.fill()}
+	for (let i=0; i<block.in; i++) { 
+		interactive_zones.push([...drawNode(x, y + nodeOffset + LAYOUT.block.node.padding*i), "innode",i])
+	}
 	nodeOffset = height/2 - LAYOUT.block.node.padding*(block.out-1)/2 
-	for (let i=0; i<block.out; i++) { ctx.beginPath(); ctx.arc(x + width, y + nodeOffset + LAYOUT.block.node.padding*i, LAYOUT.block.node.radius, 0, 2 * Math.PI); ctx.fill() }
+	for (let i=0; i<block.out; i++) { 
+		interactive_zones.push([...drawNode(x + width, y + nodeOffset + LAYOUT.block.node.padding*i), "outnode",i])
+	}
+
+	return interactive_zones
+}
+
+function drawNode(x,y) { // just a D.R.Y. thing
+	ctx.beginPath(); 
+	ctx.arc(x, y, LAYOUT.block.node.radius, 0, 2 * Math.PI) ; 
+	ctx.fill()
+	return [x-LAYOUT.block.node.radius, y-LAYOUT.block.node.radius, 2*LAYOUT.block.node.radius, 2*LAYOUT.block.node.radius]
 }
 
 mouse = {x:0, y:0}
@@ -186,16 +206,24 @@ canvas.onmousemove = (e) => {
 	mouse.x = e.clientX
 	mouse.y = e.clientY
 
-	if (mouseselect==-1) {
+	if (mouseselect==-1) { // mouseovers
 		let selected = interactive_zones[detectMouseover()]
-		canvas.style.cursor = "default"
+		canvas.style.cursor = mouseover==0?"default":"pointer"
 		switch (selected[4]) {
 			case "sidebarresize":
 				canvas.style.cursor = "ew-resize"
 				break;
+			case "dragcustom":
+			case "block":
+				canvas.style.cursor = "grab"
+				break;
 		}
-	} else {
+	} else { // draggings
 		switch (interactive_zones[mouseselect][4]) {
+			case "block":
+				customBlocks[editing].innards[dragging_placed].x = mouse.x - dragging.xOffset
+				customBlocks[editing].innards[dragging_placed].y = mouse.y - dragging.yOffset
+			break;
 			case "sidebarresize":
 				LAYOUT.sidebar.width = Math.max(mouse.x, LAYOUT.sidebar.handlebar)
 				LAYOUT.playbar.width = Math.max(LAYOUT.sidebar.width, LAYOUT.playbar.minwidth)
@@ -205,12 +233,16 @@ canvas.onmousemove = (e) => {
 }
 
 mouseselect = -1
-dragging = false
+dragging = dragging_placed = false
+
 canvas.onmousedown = (e) => {
 	mouseselect = mouseover
 	var selected = interactive_zones[mouseselect]
-	switch (selected[4]) {
+	switch (selected[4]) {		
+		case "block":
+			dragging_placed = selected[6]
 		case "dragcustom":
+			canvas.style.cursor = "grabbing"
 			dragging = {id:selected[5], xOffset: mouse.x-selected[0], yOffset: mouse.y-selected[1]}
 			break;
 	}
@@ -241,16 +273,23 @@ canvas.onmouseup = (e) => {
 				break;
 			case "clear":
 				if (confirm("are you sure you want to remove everything in this block?")) {
-					// customBlocks[editing].innards = []
+					customBlocks[editing].innards = []
 				}
 		}
 	}
 	switch (interactive_zones[mouseselect][4]) {
+		case "block":
+			if (mouse.x <= LAYOUT.sidebar.width) { // put back
+				customBlocks[editing].innards.splice(dragging_placed,1)
+			}
+			dragging = dragging_placed = false;
+			break;
 		case "dragcustom":
 			// place block
-			if (mouse.x > LAYOUT.sidebar.width && mouse.y > LAYOUT.topbar.height) { // on stage
+			if (mouse.x > LAYOUT.sidebar.width) { // on stage
+				canvas.style.cursor = "grab"
 				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset, y:mouse.y-dragging.yOffset})
-			}			
+			}	
 			dragging = false;
 			break;
 
@@ -294,6 +333,7 @@ customBlocks = [
 	{name: "OUTPUT", core:true, in:1, out:0, innards: []},
 	{name: "AND", core:true, in:2, out:1, innards: []},
 	{name: "NOT", core:true, in:1, out:1, innards: []},
+	{name: "OR", core:false, in:2, out:1, innards: [{"id":0,"x":341,"y":346},{"id":1,"x":712,"y":370},{"id":0,"x":344,"y":394},{"id":2,"x":530,"y":370},{"id":3,"x":608,"y":369},{"id":3,"x":445,"y":346},{"id":3,"x":445,"y":394}]},
 	{name: "4 BIT ADDER", core:false, in:9, out:5, innards: []},
 	{name: "SOME REALLY REALLY LONG NAME", core:false, in:1, out:1, innards: []},
 ]
