@@ -7,6 +7,8 @@ canvas.width = window.innerWidth
 canvas.height = window.innerHeight
 
 var FONT_HEIGHT = 20
+const INPUT = 0
+const OUTPUT = 1
 
 const PALLETE = {
 	background: "#333",
@@ -15,7 +17,8 @@ const PALLETE = {
 		background: "#202020",
 		block: "#444",
 		dragging: "#888",
-		text: "#fff"
+		text: "#fff",
+		disabled: "#1c1c1c"
 	},
 	topbar: {
 		background: "#272727",
@@ -44,6 +47,10 @@ const LAYOUT = {
 		height: 50
 	},
 	block: {
+		radius: 9,
+		endpoint: {
+			radius: 3
+		},
 		node: {
 			padding: 13,
 			color: "#fff",
@@ -125,7 +132,7 @@ function render() {
 		renderBlock(dragging.id, mouse.x - dragging.xOffset, mouse.y - dragging.yOffset, PALLETE.sidebar.dragging)
 	}
 
-	///*
+	/*
 	interactive_zones.forEach(([x,y,w,h],i)=>{
 		ctx.strokeStyle = i==mouseover?"green":"red"
 		ctx.strokeRect(x,y,w,h)
@@ -139,13 +146,13 @@ SCROLLBAR_WIDTH = 5
 function renderCustom({name, core}, i) {
 	let width = Math.min(ctx.measureText(name).width+SAVED_PADDING+35, LAYOUT.sidebar.width-SAVED_PADDING*2-SCROLLBAR_WIDTH)
 
-	ctx.fillStyle = PALLETE.sidebar.block
+	ctx.fillStyle = disabledBlocks.includes(i)?PALLETE.sidebar.disabled:PALLETE.sidebar.block
 	let y_position = Math.round(i*SAVED_HEIGHT)-sidebarScroll +SAVED_PADDING,
 	dimensions = [SAVED_PADDING, y_position, width -(26*core), SAVED_HEIGHT-SAVED_PADDING]
 	let noclip = ctx.save()
 	ctx.roundRect(...dimensions, 9).clip()
 	ctx.fill()
-	interactive_zones.push([...dimensions, "dragcustom", i])
+	interactive_zones.push([...dimensions, disabledBlocks.includes(i)?"disabled":"dragcustom", i])
 
 	let text_y = Math.round(y_position + (SAVED_HEIGHT-SAVED_PADDING)/2 + FONT_HEIGHT/3)
 	ctx.fillStyle = PALLETE.sidebar.text
@@ -171,9 +178,14 @@ function renderBlock(id, x, y, colour) {
 	let width = ctx.measureText(block.name).width + 20
 	let height = Math.max(LAYOUT.block.node.padding*nodeCount+SAVED_PADDING, SAVED_HEIGHT-SAVED_PADDING) 
 
-	ctx.roundRect(x, y, width, height, 9).fill()
+	ctx.roundRect(x, y, width, height, LAYOUT.block.radius).fill()
 	interactive_zones.push([x,y,width,height,"block",id])
+	if (id==INPUT) {
+		ctx.roundRect(x,y,LAYOUT.block.radius+LAYOUT.block.endpoint.radius, height, LAYOUT.block.endpoint.radius).fill()
+	} else if (id==OUTPUT) { // outputs
+		ctx.roundRect(x+width-LAYOUT.block.radius-LAYOUT.block.endpoint.radius,y, LAYOUT.block.radius+LAYOUT.block.endpoint.radius, height, LAYOUT.block.endpoint.radius).fill()
 
+	}
 	// draw name
 	ctx.fillStyle = PALLETE.sidebar.text
 	ctx.fillText(block.name, x + SAVED_PADDING, Math.round(y+ height/2 + FONT_HEIGHT/3))
@@ -215,7 +227,10 @@ canvas.onmousemove = (e) => {
 				break;
 			case "dragcustom":
 			case "block":
-				canvas.style.cursor = "grab"
+				canvas.style.cursor = "drag"
+				break;
+			case "disabled":
+				canvas.style.cursor = "not-allowed"
 				break;
 		}
 	} else { // draggings
@@ -301,11 +316,28 @@ canvas.onmouseup = (e) => {
 }
 
 function switchTo(n) {
-	// maybe also like save and optomise current block or something idk
-
+	calculateBlockStats(editing)
+	// load in new block
 	editing = n
-	// then some code to load the new one in
 	cache = JSON.parse(JSON.stringify(customBlocks[editing])) // deep clone it
+
+	disabledBlocks = [editing]
+	customBlocks.forEach((block,i)=>{if (block.blocksused.has(editing)) disabledBlocks.push(i)})
+}
+
+function calculateBlockStats(n) {
+	// function will check how many input & output nodes in current block and what it contains and stuff.. so those things can be dynamically found and used in other stuff yeahh
+	customBlocks[n].blocksused = new Set() // so we cant use this block in other ones and make an infinite loop. sorry :p. set wont be stored in JSON.stringify() cache but its fine cuz we call this whenever we switch so just regen it ye
+	customBlocks[n].in = 0
+	customBlocks[n].out = 0
+	for (let i=0; i<customBlocks[n].innards.length; i++) {
+		if (customBlocks[n].innards[i].id == INPUT) {
+			customBlocks[n].in++
+		} else if (customBlocks[n].innards[i].id == OUTPUT) {
+			customBlocks[n].out++
+		}
+		customBlocks[n].blocksused.add(customBlocks[n].innards[i].id)
+	}
 }
 
 function generateNewBlock() {
@@ -329,16 +361,18 @@ function contains([sx,sy,w,h], {x,y}) {
 }
 
 customBlocks = [
-	{name: "INPUT", core:true, in:0, out:1, innards: []},
-	{name: "OUTPUT", core:true, in:1, out:0, innards: []},
-	{name: "AND", core:true, in:2, out:1, innards: []},
-	{name: "NOT", core:true, in:1, out:1, innards: []},
-	{name: "OR", core:false, in:2, out:1, innards: [{"id":0,"x":341,"y":346},{"id":1,"x":712,"y":370},{"id":0,"x":344,"y":394},{"id":2,"x":530,"y":370},{"id":3,"x":608,"y":369},{"id":3,"x":445,"y":346},{"id":3,"x":445,"y":394}]},
-	{name: "4 BIT ADDER", core:false, in:9, out:5, innards: []},
-	{name: "SOME REALLY REALLY LONG NAME", core:false, in:1, out:1, innards: []},
+	{name: "INPUT", core:true, in:0, out:1, innards: [], blocksused: new Set()},
+	{name: "OUTPUT", core:true, in:1, out:0, innards: [], blocksused: new Set()},
+	{name: "AND", core:true, in:2, out:1, innards: [], blocksused: new Set()},
+	{name: "NOT", core:true, in:1, out:1, innards: [], blocksused: new Set()},
+	{name: "OR", core:false, in:2, out:1, innards: [{"id":0,"x":341,"y":346},{"id":1,"x":712,"y":370},{"id":0,"x":344,"y":394},{"id":2,"x":530,"y":370},{"id":3,"x":608,"y":369},{"id":3,"x":445,"y":346},{"id":3,"x":445,"y":394}], blocksused: new Set()},
+	{name: "4 BIT ADDER", core:false, in:9, out:5, innards: [], blocksused: new Set()},
+	{name: "SOME REALLY REALLY LONG NAME", core:false, in:1, out:1, innards: [], blocksused: new Set()},
 ]
 sidebarScroll = -50
 editing = 4
+
+var disabledBlocks = [editing]
 
 setInterval(render, 30)
 //render()
