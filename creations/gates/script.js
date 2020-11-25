@@ -100,10 +100,15 @@ function render() {
 	ctx.clearRect(0,0, canvas.width, canvas.height)
 	interactive_zones = [[0,0,canvas.width,canvas.height,"none"]]
 
+	// draw all the connections
+	for (let i=0; i<customBlocks[editing].innards.length; i++) {
+		for (let j=0; j<customBlocks[editing].innards[i].links.length; j++) {
+			customBlocks[editing].innards[i].links[j].forEach(connection=>renderConnection([i,j], connection))
+		}
+	}
+	
 	// draw all the inner block things
 	customBlocks[editing].innards.forEach((block,i)=>{
-		// do the connections
-		block.links.forEach((connections,indx)=>connections.forEach(connection=>renderConnection([i,indx], connection)))
 		renderBlock(block.id, block.x, block.y, PALLETE.block.color, block.name, i).forEach(([...args])=>interactive_zones.push([...args, i]))
 	})
 
@@ -388,6 +393,11 @@ canvas.onmouseup = (e) => {
 			if (mouse.x <= LAYOUT.sidebar.width) { // put back
 				customBlocks[editing].innards.splice(dragging_placed,1)
 				// also delete any references in links anywhere
+				for (let i=0; i<customBlocks[editing].innards.length; i++) {
+					for (let j=0; j<customBlocks[editing].innards[i].links.length; j++) {
+						customBlocks[editing].innards[i].links[j] = customBlocks[editing].innards[i].links[j].filter(([block,node])=>block!==dragging_placed).map(([block,node])=>[block>dragging_placed?--block:block,node])
+					}
+				}
 			}
 			dragging = dragging_placed = false;
 			break;
@@ -395,15 +405,13 @@ canvas.onmouseup = (e) => {
 			// place block
 			if (mouse.x > LAYOUT.sidebar.width) { // on stage
 				canvas.style.cursor = "grab"
-				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset, y:mouse.y-dragging.yOffset, name:dragging.name, links:JSON.parse("["+"[],".repeat(customBlocks[dragging.id].out.length).slice(0,-1)+"]"), outputStates: Array(customBlocks[dragging.id].out.length), leadsTo:[]})
+				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset, y:mouse.y-dragging.yOffset, name:dragging.name, links:JSON.parse("["+"[],".repeat(customBlocks[dragging.id].out.length).slice(0,-1)+"]"), outputStates: Array(customBlocks[dragging.id].out.length), leadsTo:[], nodeOffset:[[0,0],[0,0]]})
 			} else { canvas.style.cursor = "default" }
 			dragging = false;
 			break;
 
 		case "disablednode":
 			if (connecting.to) {
-				console.log(connecting)
-				console.log(connecting.to)
 				if (connecting.isFromInput) {
 					if (indx(customBlocks[editing].innards[connecting.from[0]].links, connecting.to) === -1) { // otherwise it already exists so skip it
 						customBlocks[editing].innards[connecting.to[0]].links[connecting.to[1]].push(connecting.from)
