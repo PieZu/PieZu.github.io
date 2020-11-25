@@ -33,6 +33,15 @@ const PALLETE = {
 	block: {
 		color: "#666",
 		editablename: "#555"
+	},
+	node: {
+		default: "#fff",
+		disabled: "#444",
+		active: "#bbb"
+	},
+	line: {
+		off: "#000",
+		on: "#f00"
 	}
 }
 const LAYOUT = {
@@ -51,12 +60,14 @@ const LAYOUT = {
 		radius: 9,
 		endpoint: {
 			radius: 3
-		},
-		node: {
-			padding: 13,
-			color: "#fff",
-			radius: 5
 		}
+	},
+	node: {
+		padding: 13,
+		radius: 5
+	},
+	line: {
+		width: 3
 	}
 }
 
@@ -91,8 +102,24 @@ function render() {
 
 	// draw all the inner block things
 	customBlocks[editing].innards.forEach((block,i)=>{
-		renderBlock(block.id, block.x, block.y, PALLETE.block.color, block.name).forEach(([...args])=>interactive_zones.push([...args, i]))
+		// do the connections
+		block.links.forEach((connections,indx)=>connections.forEach(connection=>renderConnection([i,indx], connection)))
+		renderBlock(block.id, block.x, block.y, PALLETE.block.color, block.name, i).forEach(([...args])=>interactive_zones.push([...args, i]))
 	})
+
+	// render when connecting a node
+	if (connecting) {
+		ctx.strokeStyle = PALLETE.line.off
+		ctx.lineWidth = LAYOUT.line.width
+		ctx.beginPath()
+		ctx.moveTo(connecting.sx, connecting.sy)
+		ctx.lineTo(mouse.x, mouse.y)
+		ctx.stroke()
+		// make obvious where to where is being connected x3
+		ctx.fillStyle = PALLETE.node.active
+		drawNode(connecting.sx, connecting.sy)
+		if (connecting.to) drawNode(connecting.ex, connecting.ey)
+	}
 
 	// top bar thing
 	ctx.font = PALLETE.topbar.font
@@ -126,7 +153,6 @@ function render() {
 		interactive_zones.push([x+5-3, 10-3, PALLETE.playbar.fontSize+6, PALLETE.playbar.fontSize+6, ["clear", "savenew", "createnew"][i]])
 
 	}
-
 
 	// render when dragging a thing
 	if (dragging) {
@@ -166,19 +192,19 @@ function renderCustom({name, core}, i) {
 	ctx.restore(noclip) // reset it back to nothing
 }
 
-function renderBlock(id, x, y, colour, customname) {
+function renderBlock(id, x, y, colour, customname, instancenum) {
 	var interactive_zones = [] // make a local one so we dont have to actually add them 
 
 	ctx.fillStyle = colour || customBlocks[id]
 
 	let block = customBlocks[id]
-	let nodeCount = Math.max(block.in, block.out)
+	let nodeCount = Math.max(block.in.length, block.out.length)
 
 	// draw background thing
 	ctx.font = `${FONT_HEIGHT}px ${PALLETE.sidebar.fontFamily}`
 	let name = id==OUTPUT||id==INPUT?customname:block.name
 	let width = ctx.measureText(name).width + 20
-	let height = Math.max(LAYOUT.block.node.padding*nodeCount+SAVED_PADDING, SAVED_HEIGHT-SAVED_PADDING) 
+	let height = Math.max(LAYOUT.node.padding*nodeCount+SAVED_PADDING, SAVED_HEIGHT-SAVED_PADDING) 
 
 	ctx.roundRect(x, y, width, height, LAYOUT.block.radius).fill()
 	interactive_zones.push([x,y,width,height,"block",id])
@@ -196,29 +222,53 @@ function renderBlock(id, x, y, colour, customname) {
 	
 	// draw nodes
 	var radius = 3
-	ctx.fillStyle = LAYOUT.block.node.color
-	let nodeOffset = height/2 - LAYOUT.block.node.padding*(block.in-1)/2
-	for (let i=0; i<block.in; i++) { 
-		interactive_zones.push([...drawNode(x, y + nodeOffset + LAYOUT.block.node.padding*i), "innode",i])
+	var disabled = false
+	ctx.fillStyle = PALLETE.node.default
+	if (connecting && (connecting.isFromInput || connecting.from[0]==instancenum || customBlocks[editing].innards[instancenum].leadsTo.includes(connecting.from[0]))) { ctx.fillStyle = PALLETE.node.disabled; disabled=true }
+	let nodeOffset = height/2 - LAYOUT.node.padding*(block.in.length-1)/2
+	for (let i=0; i<block.in.length; i++) { 
+		interactive_zones.push([...drawNode(x, y + nodeOffset + LAYOUT.node.padding*i), disabled?"disablednode":"innode",i])
 	}
-	nodeOffset = height/2 - LAYOUT.block.node.padding*(block.out-1)/2 
-	for (let i=0; i<block.out; i++) { 
-		interactive_zones.push([...drawNode(x + width, y + nodeOffset + LAYOUT.block.node.padding*i), "outnode",i])
+	if (connecting) { ctx.fillStyle = (connecting.isFromInput&&connecting.from[0]!==instancenum&&!customBlocks[editing].innards[connecting.from[0]].leadsTo.includes(instancenum))?PALLETE.node.default:PALLETE.node.disabled; disabled=true }
+	let enodeOffset = height/2 - LAYOUT.node.padding*(block.out.length-1)/2 
+	for (let i=0; i<block.out.length; i++) { 
+		interactive_zones.push([...drawNode(x + width, y + enodeOffset + LAYOUT.node.padding*i), disabled?"disablednode":"outnode",i])
 	}
 
+	if (instancenum!==undefined) customBlocks[editing].innards[instancenum].nodeOffset = [[0, nodeOffset], [width, enodeOffset]]
+	
 	return interactive_zones
 }
 
 function drawNode(x,y) { // just a D.R.Y. thing
 	ctx.beginPath(); 
-	ctx.arc(x, y, LAYOUT.block.node.radius, 0, 2 * Math.PI) ; 
+	ctx.arc(x, y, LAYOUT.node.radius, 0, 2 * Math.PI) ; 
 	ctx.fill()
-	return [x-LAYOUT.block.node.radius, y-LAYOUT.block.node.radius, 2*LAYOUT.block.node.radius, 2*LAYOUT.block.node.radius]
+	return [x-LAYOUT.node.radius, y-LAYOUT.node.radius, 2*LAYOUT.node.radius, 2*LAYOUT.node.radius]
+}
+
+function renderConnection([startBlock, startNode], [endBlock, endNode]) {
+	let start = customBlocks[editing].innards[startBlock]
+	ctx.strokeStyle = start.outputStates[startNode]?PALLETE.line.on:PALLETE.line.off
+	let end = customBlocks[editing].innards[endBlock]
+
+	let [_,[sx,sy]] = start.nodeOffset
+	let [[ex,ey],__] = end.nodeOffset
+	sx += start.x
+	ex = end.x
+	sy += start.y + LAYOUT.node.padding*startNode
+	ey += end.y + LAYOUT.node.padding*endNode
+
+//	console.log(sx,sy,ex,ey)
+	ctx.beginPath()
+	ctx.moveTo(sx,sy)
+	ctx.lineTo(ex,ey)
+	ctx.stroke()
 }
 
 mouse = {x:0, y:0}
 mouseover = -1
-mousemove = (e) => {
+canvas.onmousemove = (e) => {
 	mouse.x = e.clientX
 	mouse.y = e.clientY
 
@@ -251,13 +301,30 @@ mousemove = (e) => {
 				LAYOUT.sidebar.width = Math.max(mouse.x, LAYOUT.sidebar.handlebar)
 				LAYOUT.playbar.width = Math.max(LAYOUT.sidebar.width, LAYOUT.playbar.minwidth)
 				break;
+			case "disablednode":
+			case "innode":
+			case "outnode":
+				connecting.to = false
+				canvas.style.cursor = "pointer"
+				detectMouseover()
+				if (interactive_zones[mouseover][4] == "innode") {
+					connecting.to = [interactive_zones[mouseover][6],interactive_zones[mouseover][5]]
+					connecting.ex = interactive_zones[mouseover][0] + interactive_zones[mouseover][2]/2
+					connecting.ey = interactive_zones[mouseover][1] + interactive_zones[mouseover][3]/2
+				} else if (interactive_zones[mouseover][4] == "outnode") {
+					connecting.to = [interactive_zones[mouseover][6],interactive_zones[mouseover][5]]
+					connecting.ex = interactive_zones[mouseover][0] + interactive_zones[mouseover][2]/2
+					connecting.ey = interactive_zones[mouseover][1] + interactive_zones[mouseover][3]/2
+				} else if (interactive_zones[mouseover][4] == "disablednode") {
+					canvas.style.cursor = "not-allowed"
+				}
 		}
 	}
 }
-canvas.onmousemove = mousemove
 
-mouseselect = -1
-dragging = dragging_placed = false
+var mouseselect = -1
+var dragging = dragging_placed = false
+var connecting = false
 
 canvas.onmousedown = (e) => {
 	mouseselect = mouseover
@@ -271,6 +338,11 @@ canvas.onmousedown = (e) => {
 			if (dragging.id==INPUT||dragging.id==OUTPUT) {
 				dragging.name = dragging_placed!==false?customBlocks[editing].innards[selected[6]].name:verifyName(["INPUT","OUTPUT"][dragging.id], dragging.id==OUTPUT)
 			}
+			break;
+		case "innode":
+		case "outnode":
+			connecting = {from: [selected[6], selected[5]], sx:selected[0]+selected[2]/2, sy:selected[1]+selected[3]/2, isFromInput: selected[4]=="innode", to:false}
+			console.log(JSON.stringify(connecting).replace(/\\/g,""))
 			break;
 	}
 }
@@ -308,6 +380,7 @@ canvas.onmouseup = (e) => {
 				if (confirm("are you sure you want to remove everything in this block?")) {
 					customBlocks[editing].innards = []
 				}
+				break;
 		}
 	}
 	switch (interactive_zones[mouseselect][4]) {
@@ -322,24 +395,41 @@ canvas.onmouseup = (e) => {
 			// place block
 			if (mouse.x > LAYOUT.sidebar.width) { // on stage
 				canvas.style.cursor = "grab"
-				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset, y:mouse.y-dragging.yOffset, name:dragging.name})
+				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset, y:mouse.y-dragging.yOffset, name:dragging.name, links:JSON.parse("["+"[],".repeat(customBlocks[dragging.id].out.length).slice(0,-1)+"]"), outputStates: Array(customBlocks[dragging.id].out.length), leadsTo:[]})
 			} else { canvas.style.cursor = "default" }
 			dragging = false;
-			/*
-			e.clientX = mouse.x
-			e.clientY = mouse.y
-			mousemove(e)
-			*/break;
+			break;
 
-		default:
-
+		case "disablednode":
+			if (connecting.to) {
+				console.log(connecting)
+				console.log(connecting.to)
+				if (connecting.isFromInput) {
+					if (indx(customBlocks[editing].innards[connecting.from[0]].links, connecting.to) === -1) { // otherwise it already exists so skip it
+						customBlocks[editing].innards[connecting.to[0]].links[connecting.to[1]].push(connecting.from)
+						// idk recursive add to the leadsTo
+					}
+				} else {
+					if (indx(customBlocks[editing].innards[connecting.to[0]].links, connecting.from) === -1) {
+						customBlocks[editing].innards[connecting.from[0]].links[connecting.from[1]].push(connecting.to)
+						// and yea recursive but backwards
+					}
+				}
+			}
+			connecting = false
+			break;
 	}
 	
 	mouseselect = -1
+	canvas.onmousemove(e)
+}
+
+function indx(array, subduoarray) {
+	return array.findIndex(itm=>itm[0]==subduoarray[0]&&itm[1]==subduoarray[1])
 }
 
 function verifyName(name, isOut) { // ensure name of input/output block is unique within custom block.. if not, append letters to make it
-	let [_, pref, num] = name.match(/(.+?)(\d*)$/)
+	let [_, pref, num] = name.match(/(.*?)(\d*)$/)
 	let taken = customBlocks[editing].innards.filter(x=>x.id==isOut*OUTPUT).map(x=>x.name)
 	while (taken.includes(name)) {
 		if (num=="") {
@@ -366,13 +456,13 @@ function switchTo(n) {
 function calculateBlockStats(n) {
 	// function will check how many input & output nodes in current block and what it contains and stuff.. so those things can be dynamically found and used in other stuff yeahh
 	let blocksused = new Set() // so we cant use this block in other ones and make an infinite loop.
-	customBlocks[n].in = 0
-	customBlocks[n].out = 0
+	customBlocks[n].in = []
+	customBlocks[n].out = []
 	for (let i=0; i<customBlocks[n].innards.length; i++) {
 		if (customBlocks[n].innards[i].id == INPUT) {
-			customBlocks[n].in++
+			customBlocks[n].in.push(customBlocks[n].innards[i].name)
 		} else if (customBlocks[n].innards[i].id == OUTPUT) {
-			customBlocks[n].out++
+			customBlocks[n].out.push(customBlocks[n].innards[i].name)
 		} else {
 			blocksused.add(customBlocks[n].innards[i].id)
 		}
@@ -388,7 +478,7 @@ function calculateBlockStats(n) {
 }
 
 function generateNewBlock() {
-	return customBlocks.push({name: "new block", core:false, in:1, out:1, innards: [{"id":0,"x":380,"y":351,"name":"INPUT"},{"id":1,"x":790,"y":348,"name":"OUTPUT"}], dependencies: []})-1
+	return customBlocks.push({name: "new block", core:false, in:["INPUT"], out:["OUTPUT"], innards: [{"id":0,"x":380,"y":351,"name":"INPUT"},{"id":1,"x":790,"y":348,"name":"OUTPUT"}], dependencies: []})-1
 }
 
 function detectMouseover() {
@@ -408,14 +498,12 @@ function contains([sx,sy,w,h], {x,y}) {
 }
 
 customBlocks = [
-	{name: "INPUT", core:true, in:0, out:1, innards: [], dependencies: []},
-	{name: "OUTPUT", core:true, in:1, out:0, innards: [], dependencies: []},
-	{name: "NAND", core:true, in:2, out:1, innards:[], dependencies: []},
-	{name: "AND", core:false, in:2, out:1, innards: [], dependencies: []}, // a,b -> nand -> not -> output
-	{name: "NOT", core:false, in:1, out:1, innards: [], dependencies: []}, // a ->-> nand -> output
-	{name: "OR", core:false, in:2, out:1, innards: [{id:0,x:341,y:346,name:'a'},{id:1,x:712,y:370,name:'out'},{id:0,x:344,y:394,name:'b'},{id:4,x:530,y:370},{id:3,x:608,y:369},{id:3,x:445,y:346},{id:3,x:445,y:394}], dependencies: []},
-	{name: "4 BIT ADDER", core:false, in:9, out:5, innards: [], dependencies: []},
-	{name: "SOME REALLY REALLY LONG NAME", core:false, in:1, out:1, innards: [], dependencies: []},
+	{name: "INPUT", core:true, in:[], out:['input'], innards: [], dependencies: []},
+	{name: "OUTPUT", core:true, in:['output'], out:[], innards: [], dependencies: []},
+	{name: "NAND", core:true, in:['a','b'], out:['out'], innards:[], dependencies: []},
+	{name: "AND", core:false, in:['a','b'], out:['a^b'], innards: [], dependencies: []}, // a,b -> nand -> not -> output
+	{name: "NOT", core:false, in:['a'], out:['¬a'], innards: [], dependencies: []}, // a ->-> nand -> output
+	{name: "OR", core:false, in:['a','b'], out:['a∨b'], innards: [], dependencies: []},
 ]
 sidebarScroll = -50
 editing = 5
