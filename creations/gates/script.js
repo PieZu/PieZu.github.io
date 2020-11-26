@@ -10,6 +10,7 @@ var FONT_HEIGHT = 20
 const INPUT = 0
 const OUTPUT = 1
 const NAND = 2
+const DFF = 3
 
 const PALLETE = {
 	background: "#333",
@@ -323,11 +324,11 @@ mouseover = -1
 canvas.onmousemove = (e) => {
 	mouse.x = e.clientX
 	mouse.y = e.clientY
+	tooltip = false
 
 	if (mouseselect==-1) { // mouseovers
 		let selected = interactive_zones[detectMouseover()]
 		canvas.style.cursor = mouseover==0?"default":"pointer"
-		tooltip = false
 		switch (selected[4]) {
 			case "sidebarresize":
 				canvas.style.cursor = "ew-resize"
@@ -366,15 +367,18 @@ canvas.onmousemove = (e) => {
 				connecting.to = false
 				canvas.style.cursor = "pointer"
 				detectMouseover()
-				if (interactive_zones[mouseover][4] == "innode") {
-					connecting.to = [interactive_zones[mouseover][6],interactive_zones[mouseover][5]]
-					connecting.ex = interactive_zones[mouseover][0] + interactive_zones[mouseover][2]/2
-					connecting.ey = interactive_zones[mouseover][1] + interactive_zones[mouseover][3]/2
-				} else if (interactive_zones[mouseover][4] == "outnode") {
-					connecting.to = [interactive_zones[mouseover][6],interactive_zones[mouseover][5]]
-					connecting.ex = interactive_zones[mouseover][0] + interactive_zones[mouseover][2]/2
-					connecting.ey = interactive_zones[mouseover][1] + interactive_zones[mouseover][3]/2
-				} else if (interactive_zones[mouseover][4] == "disablednode") {
+				let selected = interactive_zones[mouseover]
+				if (selected[4] == "innode") {
+					connecting.to = [selected[6], selected[5]]
+					connecting.ex = selected[0] + selected[2]/2
+					connecting.ey = selected[1] + selected[3]/2
+					tooltip = customBlocks[customBlocks[editing].innards[selected[6]].id].in[selected[5]]
+				} else if (selected[4] == "outnode") {
+					connecting.to = [selected[6],selected[5]]
+					connecting.ex = selected[0] + selected[2]/2
+					connecting.ey = selected[1] + selected[3]/2
+					tooltip = customBlocks[customBlocks[editing].innards[selected[6]].id].out[selected[5]]
+				} else if (selected[4] == "disablednode") {
 					canvas.style.cursor = "not-allowed"
 				}
 		}
@@ -421,7 +425,7 @@ canvas.onmouseup = (e) => {
 				break;
 			case "rename":
 				newName = prompt('enter new name')
-				if (newName!==null)	customBlocks[editing].name = prompt('enter new name')
+				if (newName!==null)	customBlocks[editing].name = newName
 				break;
 			case "editname":
 				newName = prompt('enter new name')
@@ -452,10 +456,16 @@ canvas.onmouseup = (e) => {
 		case "block":
 			if (mouse.x <= LAYOUT.sidebar.width) { // put back
 				// delete all references xo
-				for (let i=0; i<customBlocks[editing].innards[dragging_placed].outputStates.length; i++) {
-					cullInputs(editing, [dragging_placed, i])
-				}
+				cullInputs(editing, [dragging_placed])
 				customBlocks[editing].innards.splice(dragging_placed,1)
+				// now make all the indices go down one
+				customBlocks[editing].innards.forEach(block=>{
+					block.links.forEach(linkCol=>linkCol.forEach(link=>{if(link[0]>dragging_placed) link[0]--}))
+					for (let i=0; i<block.sources; i++) {
+						if (block.sources[i]>dragging_placed) block.sources[i]--
+					}
+				})
+
 			}
 			dragging = dragging_placed = false;
 			break;
@@ -538,17 +548,20 @@ function calculateBlockStats(n) {
 	let newOut = []
 	for (let i=0; i<customBlocks[n].innards.length; i++) {
 		if (customBlocks[n].innards[i].id == INPUT) {
-			newIn.push(customBlocks[n].innards[i].name)
+			newIn.push(customBlocks[n].innards[i])
 		} else if (customBlocks[n].innards[i].id == OUTPUT) {
-			newOut.push(customBlocks[n].innards[i].name)
+			newOut.push(customBlocks[n].innards[i])
 		} else {
 			blocksused.add(customBlocks[n].innards[i].id)
 		}
 	}
 	newIn.sort((a,b)=>{
-		var x = customBlocks[n].innards.findIndex(x=>x.id==INPUT && x.name == a).y
-		var y = customBlocks[n].innards.findIndex(x=>x.id==INPUT && x.name == b).y
+		var x = a.y;
+		var y = b.y;
 		return (x < y) ? -1 : ((x > y) ? 1 : 0)})
+	newIn = newIn.map(x=>x.name)
+	newOut = newOut.map(x=>x.name)
+	//console.log(newIn)
 
 	let replaces = {}
 	let toDelete = []
@@ -561,9 +574,10 @@ function calculateBlockStats(n) {
 			//}
 		}
 	}
-	if (replaces.length>0) {
+
+	if (Object.keys(replaces).length>0) {
 		customBlocks.forEach(blockdomain=>{
-			if (!block.core) block.innards.forEach(block=>block.links.forEach(linkColl=>linkColl.forEach(link=>{if (blockdomain.innards[link[0]].id==n) {link[1] = replaces[link[1]] || link[1]}})))
+			if (!blockdomain.core) blockdomain.innards.forEach(block=>block.links.forEach(linkColl=>linkColl.forEach(link=>{if (blockdomain.innards[link[0]].id==n) {link[1] = replaces[link[1]] || link[1]}})))
 		})
 	}/*
 	if (toDelete.length) {
@@ -616,9 +630,10 @@ customBlocks = [
 	{name: "INPUT", core:true, in:[], out:['input'], innards: [], dependencies: []},
 	{name: "OUTPUT", core:true, in:['output'], out:[], innards: [], dependencies: []},
 	{name: "NAND", core:true, in:['a','b'], out:['out'], innards:[], dependencies: []},
-	{name: "AND", core:false, in:['a','b'], out:['a^b'], innards: [{id:0,x:423,y:202,name:"a",links:[[[2,0]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.12,20]],inputted:0},{id:0,x:426,y:250,name:"b",links:[[[2,1]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.115,20]],inputted:0},{id:2,x:502,y:227,links:[[[3,0],[4,0]]],inputStates:[null,null],outputStates:[null],sources:[],nodeOffset:[[0,13.5],[76.68,20]],inputted:0},{id:1,x:696,y:228,name:"a^b",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[51.62,26.5]],inputted:0},{id:4,x:611,y:229,links:[[[3,0]]],inputStates:[null],outputStates:[null],sources:[],nodeOffset:[[0,20],[62.22,20]],inputted:0}], dependencies: [4]},
-	{name:"NOT",core:false,in:["a"],out:["¬a"],innards:[{id:0,x:310,y:280,name:"a",links:[[[1,0],[1,1]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.115,20]],inputted:0},{id:2,x:367,y:280,links:[[[2,0]]],inputStates:[null,null],outputStates:[null],sources:[],nodeOffset:[[0,13.5],[76.68,20]],inputted:0},{id:1,x:468,y:280,name:"¬a",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[42.8,26.5]],inputted:0}],dependencies:[2]},
-	{name: "OR", core:false, in:[], out:[], innards: [], dependencies: []},
+	{name:"AND",core:false,in:["a","b"],out:["a∧b"],innards:[{id:0,x:423,y:202,name:"a",links:[[[2,0]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},{id:0,x:426,y:250,name:"b",links:[[[2,1]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},{id:2,x:502,y:227,links:[[[4,0]]],inputStates:[null,null],outputStates:[true],sources:[],nodeOffset:[[0,13.5],[76.683,20]],inputted:0},{id:1,x:696,y:228,name:"a∧b",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[54.033,26.5]],inputted:0,state:false},{id:4,x:611,y:229,links:[[[3,0]]],inputStates:[true],outputStates:[false],sources:[],nodeOffset:[[0,20],[62.216,20]],inputted:0}],dependencies:[2,4]},
+	{name:"NOT",core:false,in:["a"],out:["¬a"],innards:[{id:0,x:310,y:280,name:"a",links:[[[1,0],[1,1]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},{id:2,x:367,y:280,links:[[[2,0]]],inputStates:[null,null],outputStates:[true],sources:[],nodeOffset:[[0,13.5],[76.683,20]],inputted:0},{id:1,x:468,y:280,name:"¬a",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[42.799,26.5]],inputted:0,state:true}],dependencies:[2]},
+	{name:"OR",core:false,in:["a","b"],out:["a∨b"],innards:[{id:0,x:377,y:224,name:"a",links:[[[2,0]]],inputStates:[],outputStates:[false],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0,state:false},{id:0,x:377,y:270,name:"b",links:[[[3,0]]],inputStates:[],outputStates:[false],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0,state:false},{id:4,x:429,y:224,links:[[[4,0]]],inputStates:[false],outputStates:[true],sources:[0],nodeOffset:[[0,20],[62.216,20]],inputted:0},{id:4,x:431,y:273,links:[[[4,1]]],inputStates:[false],outputStates:[true],sources:[1],nodeOffset:[[0,20],[62.216,20]],inputted:0},{id:3,x:516,y:244,links:[[[6,0]]],inputStates:[true,true],outputStates:[true],sources:[0,2,1,3],nodeOffset:[[0,13.5],[62.233,20]],inputted:0},{id:1,x:673,y:244,name:"a∨b",links:[],inputStates:[null],outputStates:[],sources:[0,2,1,3,4,6],nodeOffset:[[0,20],[54.033,26.5]],inputted:0,state:false},{id:4,x:593,y:244,links:[[[5,0]]],inputStates:[true],outputStates:[false],sources:[0,2,1,3,4],nodeOffset:[[0,20],[62.216,20]],inputted:0}],dependencies:[4,3,2]},
+	{name:"XOR",core:false,in:["a","b"],out:["a⊕b"],innards:[{id:0,x:405,y:265,name:"a",links:[[[4,0],[6,0]]],inputStates:[],outputStates:[false],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0,state:false},{id:1,x:819,y:289,name:"a⊕b",links:[],inputStates:[null],outputStates:[],sources:[6,0,3,2,7],nodeOffset:[[0,20],[62.133,26.5]],inputted:0,state:false},{id:5,x:659,y:289,links:[[[7,0]]],inputStates:[true,false],outputStates:[true],sources:[6,0,3],nodeOffset:[[0,13.5],[50,20]],inputted:2},{id:0,x:405,y:307,name:"b",links:[[[4,1],[6,1]]],inputStates:[],outputStates:[false],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0,state:false},{id:3,x:487,y:306,links:[[[2,1]]],inputStates:[false,false],outputStates:[false],sources:[4,0],nodeOffset:[[0,13.5],[62.233,20]],inputted:2},{id:4,x:566,y:264,links:[[[2,0]]],inputStates:[false],outputStates:[true],sources:[6,0,3],nodeOffset:[[0,20],[62.216,20]],inputted:1},{id:5,x:488,y:264,links:[[[5,0]]],inputStates:[false,false],outputStates:[false],sources:[0,3],nodeOffset:[[0,13.5],[50,20]],inputted:2},{id:4,x:735,y:290,links:[[[1,0]]],inputStates:[true],outputStates:[false],sources:[6,0,3,2],nodeOffset:[[0,20],[62.216,20]],inputted:1}],dependencies:[5,3,4,2]}
 ]
 sidebarScroll = -50
 editing = 5
