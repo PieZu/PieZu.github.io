@@ -48,6 +48,10 @@ const PALLETE = {
 	bulb: {
 		off: "#111",
 		on: "#f00"
+	},
+	memory: {
+		off: "#111",
+		on: "#f00"
 	}
 }
 const LAYOUT = {
@@ -77,6 +81,11 @@ const LAYOUT = {
 	},
 	bulb: {
 		width: 30,
+		radius: 9
+	},
+	memory: {
+		enabled: true,
+		height: 20,
 		radius: 9
 	}
 }
@@ -109,8 +118,13 @@ var tooltip = false
 var interactive_zones = []
 function render() {
 	if (playing) {
-		calculateBlockStats(editing)
-		execBlock(editing)
+		try{
+			calculateBlockStats(editing)
+			execBlock(editing)
+		}catch(e){
+			playing=false
+			console.error(e)
+		}
 	}
 
 	// reset
@@ -231,7 +245,7 @@ function renderBlock(id, x, y, colour, customname, instancenum) {
 
 	// draw background thing
 	ctx.font = `${FONT_HEIGHT}px ${PALLETE.sidebar.fontFamily}`
-	let name = id==OUTPUT||id==INPUT?customname:block.name
+	let name = id==OUTPUT||id==INPUT||id==DFF?customname:block.name
 	let width = ctx.measureText(name).width + 20
 	let height = Math.max(LAYOUT.node.padding*nodeCount+SAVED_PADDING, SAVED_HEIGHT-SAVED_PADDING) 
 	 // but first, bulb thing
@@ -243,7 +257,22 @@ function renderBlock(id, x, y, colour, customname, instancenum) {
 		} else { // id==OUTPUT
 			ctx.roundRect(x+width-LAYOUT.block.endpoint.radius-LAYOUT.bulb.radius, y, LAYOUT.bulb.width+LAYOUT.block.endpoint.radius+LAYOUT.bulb.radius, height, LAYOUT.bulb.radius).fill()
 		}
+	 // also the bulb thing for memory/savedstate
+	 } else if (instancenum && LAYOUT.memory.enabled && customBlocks[editing].innards[instancenum].memory!==undefined) {
+	 	var mem = customBlocks[editing].innards[instancenum].memory
+	 	if (typeof(mem) == 'boolean') mem = [mem];
+	 	else mem = mem.flat().filter(x=>typeof(x)=='boolean');
+
+	 	for (i=0;i<mem.length;i++) {
+		 	ctx.fillStyle = mem[i]?PALLETE.memory.on:PALLETE.memory.off
+	 		ctx.roundRect(x+(width/mem.length*i), y-LAYOUT.memory.height, width/mem.length, LAYOUT.memory.height+LAYOUT.block.radius+LAYOUT.memory.radius, LAYOUT.memory.radius).fill()
+	 	}
+
+	 	// also make it like a stronger bottom or it will look rlly ugly
+	 	ctx.fillStyle = colour
+	 	ctx.roundRect(x, y, width, LAYOUT.block.radius+LAYOUT.block.endpoint.radius, LAYOUT.block.endpoint.radius).fill()
 	 }
+
 	ctx.fillStyle = colour || customBlocks[id]
 	ctx.roundRect(x, y, width, height, LAYOUT.block.radius).fill()
 	interactive_zones.push([x,y,width,height,"block",id])
@@ -252,7 +281,7 @@ function renderBlock(id, x, y, colour, customname, instancenum) {
 	if (id==INPUT || id==OUTPUT) {
 		// less rounded edge
 		ctx.roundRect(x+(id==OUTPUT)*(width-LAYOUT.block.radius-LAYOUT.block.endpoint.radius), y, LAYOUT.block.radius+LAYOUT.block.endpoint.radius, height, LAYOUT.block.endpoint.radius).fill()
-		// editable name thing
+	} if (id==INPUT || id==OUTPUT|| 	id==DFF) {// editable name thing
 		let dimensions = [x +20/2 -2, y+SAVED_PADDING -4, width-20 +2*2, height-SAVED_PADDING*2 +4*2]
 		ctx.fillStyle = PALLETE.block.editablename
 		ctx.fillRect(...dimensions)
@@ -266,7 +295,7 @@ function renderBlock(id, x, y, colour, customname, instancenum) {
 	 // inputs
 	var disabled = false
 	ctx.fillStyle = PALLETE.node.default
-	if (connecting) { if (connecting.isFromInput || connecting.from[0]==instancenum || customBlocks[editing].innards[connecting.from[0]].sources.includes(instancenum)) { 
+	if (connecting) { if (connecting.isFromInput || customBlocks[editing].innards[connecting.from[0]].sources.includes(instancenum)) { 
 			ctx.fillStyle = PALLETE.node.disabled; disabled=true 
 	}}
 	let nodeOffset = height/2 - LAYOUT.node.padding*(block.in.length-1)/2
@@ -275,7 +304,7 @@ function renderBlock(id, x, y, colour, customname, instancenum) {
 	}
 	 // outputs
 	if (connecting) { 
-		if (!connecting.isFromInput || connecting.from[0]===instancenum || customBlocks[editing].innards[instancenum].sources.includes(connecting.from[0]) ) {
+		if (!connecting.isFromInput || customBlocks[editing].innards[instancenum].sources.includes(connecting.from[0]) ) {
 			disabled = true
 			ctx.fillStyle = PALLETE.node.disabled			
 		} else {
@@ -335,7 +364,7 @@ canvas.onmousemove = (e) => {
 				break;
 			case "dragcustom":
 			case "block":
-				canvas.style.cursor = "drag"
+				canvas.style.cursor = "grab"
 				break;
 			case "disabled":
 				canvas.style.cursor = "not-allowed"
@@ -398,8 +427,8 @@ canvas.onmousedown = (e) => {
 		case "dragcustom":
 			canvas.style.cursor = "grabbing"
 			dragging = {id:selected[5], xOffset: mouse.x-selected[0], yOffset: mouse.y-selected[1]}
-			if (dragging.id==INPUT||dragging.id==OUTPUT) {
-				dragging.name = dragging_placed!==false?customBlocks[editing].innards[selected[6]].name:verifyName(["INPUT","OUTPUT"][dragging.id], dragging.id==OUTPUT);
+			if (dragging.id==INPUT||dragging.id==OUTPUT||dragging.id==DFF) {
+				dragging.name = dragging_placed!==false?customBlocks[editing].innards[selected[6]].name:verifyName(["INPUT","OUTPUT",null,"D-FlipFlop"][dragging.id], dragging.id);
 				if (dragging_placed) dragging.state = customBlocks[editing].innards[selected[6]].state
 			}
 			break;
@@ -477,7 +506,7 @@ canvas.onmouseup = (e) => {
 					links:JSON.parse("["+"[],".repeat(customBlocks[dragging.id].out.length).slice(0,-1)+"]"), 
 					inputStates: Array(customBlocks[dragging.id].in.length), 
 					outputStates: Array(customBlocks[dragging.id].out.length), 
-					sources:[], 
+					sources: dragging.id==DFF?[] : [customBlocks[editing].innards.length], 
 					nodeOffset:[[0,0],[0,0]],
 					inputted: 0
 				})
@@ -501,7 +530,7 @@ canvas.onmouseup = (e) => {
 					if (!connecting.isFromInput) { cullInputs(editing, connecting.to) }
 
 					start.links[startVals[1]].push(finishVals)
-					recursiveSourceEdit(editing, finishVals[0], [...start.sources, startVals[0]], [])
+					recursiveSourceEdit(editing, finishVals[0], start.sources, [])
 				}
 			}
 			connecting = false
@@ -516,9 +545,9 @@ function indx(array, subduoarray) {
 	return array.findIndex(itm=>itm[0]==subduoarray[0]&&itm[1]==subduoarray[1])
 }
 
-function verifyName(name, isOut) { // ensure name of input/output block is unique within custom block.. if not, append letters to make it
+function verifyName(name, id) { // ensure name of input/output block is unique within custom block.. if not, append letters to make it
 	let [_, pref, num] = name.match(/(.*?)(\d*)$/)
-	let taken = customBlocks[editing].innards.filter(x=>x.id==isOut*OUTPUT).map(x=>x.name)
+	let taken = customBlocks[editing].innards.filter(x=>x.id==id).map(x=>x.name)
 	while (taken.includes(name)) {
 		if (num=="") {
 			pref += " "
@@ -546,15 +575,29 @@ function calculateBlockStats(n) {
 	let blocksused = new Set() // so we cant use this block in other ones and make an infinite loop.
 	let newIn = []
 	let newOut = []
+	let memHolders = []
 	for (let i=0; i<customBlocks[n].innards.length; i++) {
-		if (customBlocks[n].innards[i].id == INPUT) {
-			newIn.push(customBlocks[n].innards[i])
-		} else if (customBlocks[n].innards[i].id == OUTPUT) {
-			newOut.push(customBlocks[n].innards[i])
-		} else {
-			blocksused.add(customBlocks[n].innards[i].id)
+		switch (customBlocks[n].innards[i].id) {
+			case INPUT:
+				newIn.push(customBlocks[n].innards[i])
+				break;
+			case OUTPUT:
+				newOut.push(customBlocks[n].innards[i])
+				break;
+			default:
+				blocksused.add(customBlocks[n].innards[i].id)
+				if (customBlocks[n].innards[i].memory!==undefined) memHolders.push([customBlocks[n].innards[i], i])
 		}
 	}
+	let currMemory = customBlocks[n].memory
+	customBlocks[n].memory = memHolders.map(([block,i])=>{
+		if (block.id==DFF) {
+			return [block.name, (currMemory.find(x=>x[0]==block.name) || [null, false])[1]]
+		} else {
+			return [[i,block.id], (currMemory.find(x=>x[0][0]==i) || [null,customBlocks[block.id].memory])[1]]
+		}
+	})
+
 	newIn.sort((a,b)=>{
 		var x = a.y;
 		var y = b.y;
@@ -593,7 +636,6 @@ function calculateBlockStats(n) {
 	// edit changed output ones
 	customBlocks[n].out = newOut
 
-
 	// now recursive search all the things
 	blocksused.forEach(n=>{
 		customBlocks[n].dependencies.forEach(n=>blocksused.add(n))
@@ -607,7 +649,7 @@ function calculateBlockStats(n) {
 }
 
 function generateNewBlock() {
-	return customBlocks.push({name: "new block", core:false, in:["INPUT"], out:["OUTPUT"], innards: [{id:0,x:405,y:265,name:"INPUT",links:[[]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[80,20]],inputted:0},{id:1,x:1004,y:265,name:"OUTPUT",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[102.21666717529297,26.5]],inputted:0}], dependencies: []})-1
+	return customBlocks.push({name: "new block", core:false, in:["INPUT"], out:["OUTPUT"], innards: [{id:0,x:405,y:265,name:"INPUT",links:[[]],inputStates:[],outputStates:[null],sources:[0],nodeOffset:[[0,26.5],[80,20]],inputted:0},{id:1,x:1004,y:265,name:"OUTPUT",links:[],inputStates:[null],outputStates:[],sources:[1],nodeOffset:[[0,20],[102.21666717529297,26.5]],inputted:0}], dependencies: []})-1
 }
 
 function detectMouseover() {
@@ -626,17 +668,59 @@ function contains([sx,sy,w,h], {x,y}) {
 	return (sx<x && x<sx+w && sy<y && y<sy+h)
 }
 
-customBlocks = [
-	{name: "INPUT", core:true, in:[], out:['input'], innards: [], dependencies: []},
-	{name: "OUTPUT", core:true, in:['output'], out:[], innards: [], dependencies: []},
-	{name: "NAND", core:true, in:['a','b'], out:['out'], innards:[], dependencies: []},
-	{name:"AND",core:false,in:["a","b"],out:["a∧b"],innards:[{id:0,x:423,y:202,name:"a",links:[[[2,0]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},{id:0,x:426,y:250,name:"b",links:[[[2,1]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},{id:2,x:502,y:227,links:[[[4,0]]],inputStates:[null,null],outputStates:[true],sources:[],nodeOffset:[[0,13.5],[76.683,20]],inputted:0},{id:1,x:696,y:228,name:"a∧b",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[54.033,26.5]],inputted:0,state:false},{id:4,x:611,y:229,links:[[[3,0]]],inputStates:[true],outputStates:[false],sources:[],nodeOffset:[[0,20],[62.216,20]],inputted:0}],dependencies:[2,4]},
-	{name:"NOT",core:false,in:["a"],out:["¬a"],innards:[{id:0,x:310,y:280,name:"a",links:[[[1,0],[1,1]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},{id:2,x:367,y:280,links:[[[2,0]]],inputStates:[null,null],outputStates:[true],sources:[],nodeOffset:[[0,13.5],[76.683,20]],inputted:0},{id:1,x:468,y:280,name:"¬a",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[42.799,26.5]],inputted:0,state:true}],dependencies:[2]},
-	{name:"OR",core:false,in:["a","b"],out:["a∨b"],innards:[{id:0,x:377,y:224,name:"a",links:[[[2,0]]],inputStates:[],outputStates:[false],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0,state:false},{id:0,x:377,y:270,name:"b",links:[[[3,0]]],inputStates:[],outputStates:[false],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0,state:false},{id:4,x:429,y:224,links:[[[4,0]]],inputStates:[false],outputStates:[true],sources:[0],nodeOffset:[[0,20],[62.216,20]],inputted:0},{id:4,x:431,y:273,links:[[[4,1]]],inputStates:[false],outputStates:[true],sources:[1],nodeOffset:[[0,20],[62.216,20]],inputted:0},{id:3,x:516,y:244,links:[[[6,0]]],inputStates:[true,true],outputStates:[true],sources:[0,2,1,3],nodeOffset:[[0,13.5],[62.233,20]],inputted:0},{id:1,x:673,y:244,name:"a∨b",links:[],inputStates:[null],outputStates:[],sources:[0,2,1,3,4,6],nodeOffset:[[0,20],[54.033,26.5]],inputted:0,state:false},{id:4,x:593,y:244,links:[[[5,0]]],inputStates:[true],outputStates:[false],sources:[0,2,1,3,4],nodeOffset:[[0,20],[62.216,20]],inputted:0}],dependencies:[4,3,2]},
-	{name:"XOR",core:false,in:["a","b"],out:["a⊕b"],innards:[{id:0,x:405,y:265,name:"a",links:[[[4,0],[6,0]]],inputStates:[],outputStates:[false],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0,state:false},{id:1,x:819,y:289,name:"a⊕b",links:[],inputStates:[null],outputStates:[],sources:[6,0,3,2,7],nodeOffset:[[0,20],[62.133,26.5]],inputted:0,state:false},{id:5,x:659,y:289,links:[[[7,0]]],inputStates:[true,false],outputStates:[true],sources:[6,0,3],nodeOffset:[[0,13.5],[50,20]],inputted:2},{id:0,x:405,y:307,name:"b",links:[[[4,1],[6,1]]],inputStates:[],outputStates:[false],sources:[],nodeOffset:[[0,26.5],[31.116,20]],inputted:0,state:false},{id:3,x:487,y:306,links:[[[2,1]]],inputStates:[false,false],outputStates:[false],sources:[4,0],nodeOffset:[[0,13.5],[62.233,20]],inputted:2},{id:4,x:566,y:264,links:[[[2,0]]],inputStates:[false],outputStates:[true],sources:[6,0,3],nodeOffset:[[0,20],[62.216,20]],inputted:1},{id:5,x:488,y:264,links:[[[5,0]]],inputStates:[false,false],outputStates:[false],sources:[0,3],nodeOffset:[[0,13.5],[50,20]],inputted:2},{id:4,x:735,y:290,links:[[[1,0]]],inputStates:[true],outputStates:[false],sources:[6,0,3,2],nodeOffset:[[0,20],[62.216,20]],inputted:1}],dependencies:[5,3,4,2]}
+customBlocks = [ 
+	{name:"INPUT",core:true,in:[],out:["input"],innards:[],dependencies:[],memory:[]},
+	{name:"OUTPUT",core:true,in:["output"],out:[],innards:[],dependencies:[],memory:[]},
+	{name:"NAND",core:true,in:["a","b"],out:["out"],innards:[],dependencies:[],memory:[]},
+	{name:"D-FlipFlop",core:true,in:["tostore"],out:["stored"],innards:[],dependencies:[],memory:false},
+	{name:"NOT",core:false,in:["a"],out:["!a"],dependencies:[2],memory:[],innards:[
+		{id:0,x:420,y:288,name:"a",links:[[[2,0],[2,1]]],inputStates:[],outputStates:[null],sources:[0],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},
+		{id:1,x:573,y:287,name:"!a",links:[],inputStates:[null],outputStates:[],sources:[1,2,0,0],nodeOffset:[[0,20],[36.666,26.5]],inputted:0,state:true},
+		{id:2,x:474,y:288,links:[[[1,0]]],inputStates:[null,null],outputStates:[true],sources:[2,0,0],nodeOffset:[[0,13.5],[76.683,20]],inputted:0}]},
+	{name:"AND",core:false,in:["a","b"],out:["a&b"],dependencies:[2,4],memory:[],innards:[
+		{id:0,x:405,y:265,name:"a",links:[[[2,0]]],inputStates:[],outputStates:[false],sources:[0],nodeOffset:[[0,26.5],[31.116,20]],inputted:0,state:false},
+		{id:1,x:645,y:286,name:"a&b",links:[],inputStates:[null],outputStates:[],sources:[1,4,2,0,3],nodeOffset:[[0,20],[55.566,26.5]],inputted:0,state:false},
+		{id:2,x:464,y:286,links:[[[4,0]]],inputStates:[false,false],outputStates:[true],sources:[2,0,3],nodeOffset:[[0,13.5],[76.683,20]],inputted:0},
+		{id:0,x:406,y:313,name:"b",links:[[[2,1]]],inputStates:[],outputStates:[false],sources:[3],nodeOffset:[[0,26.5],[31.116,20]],inputted:0,state:false},
+		{id:4,x:564,y:286,links:[[[1,0]]],inputStates:[true],outputStates:[false],sources:[4,2,0,3],nodeOffset:[[0,20],[62.216,20]],inputted:0}]},
+	{name:"OR",core:false,in:["a","b"],out:["a|b"],dependencies:[2],memory:[],innards:[
+		{id:0,x:405,y:265,name:"a",links:[[[3,0],[3,1]]],inputStates:[],outputStates:[null],sources:[0],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},
+		{id:1,x:671,y:288,name:"a|b",links:[],inputStates:[null],outputStates:[],sources:[1,5,3,0,0,4,2,2],nodeOffset:[[0,20],[47.433,26.5]],inputted:0},
+		{id:0,x:404,y:307,name:"b",links:[[[4,1],[4,0]]],inputStates:[],outputStates:[null],sources:[2],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},
+		{id:2,x:454,y:266,links:[[[5,0]]],inputStates:[null,null],outputStates:[null],sources:[3,0,0],nodeOffset:[[0,13.5],[76.683,20]],inputted:0},
+		{id:2,x:458,y:308,links:[[[5,1]]],inputStates:[null,null],outputStates:[null],sources:[4,2,2],nodeOffset:[[0,13.5],[76.683,20]],inputted:0},
+		{id:2,x:569,y:286,links:[[[1,0]]],inputStates:[null,null],outputStates:[null],sources:[5,3,0,0,4,2,2],nodeOffset:[[0,13.5],[76.683,20]],inputted:0}]},
+	{name:"XOR",core:false,in:["a","b"],out:["a^b"],dependencies:[5,6,4,2],memory:[],innards:[
+		{id:0,x:405,y:265,name:"a",links:[[[3,0],[4,0]]],inputStates:[],outputStates:[null],sources:[0],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},
+		{id:1,x:683,y:286,name:"a^b",links:[],inputStates:[null],outputStates:[],sources:[1,6,3,2,0,5,4,0,2],nodeOffset:[[0,20],[51.616,26.5]],inputted:0},
+		{id:0,x:404,y:305,name:"b",links:[[[3,1],[4,1]]],inputStates:[],outputStates:[null],sources:[2],nodeOffset:[[0,26.5],[31.116,20]],inputted:0},
+		{id:5,x:463,y:262,links:[[[6,0]]],inputStates:[null,null],outputStates:[null],sources:[3,2,0],nodeOffset:[[0,13.5],[62.233,20]],inputted:0},
+		{id:6,x:466,y:304,links:[[[5,0]]],inputStates:[null],outputStates:[null],sources:[4,0,2],nodeOffset:[[0,13.5],[50,20]],inputted:0},
+		{id:4,x:516,y:305,links:[[[6,1]]],inputStates:[null],outputStates:[null],sources:[5,4,0,2],nodeOffset:[[0,20],[62.216,20]],inputted:0},
+		{id:6,x:614,y:286,links:[[[7,0]]],inputStates:[null,null],outputStates:[null],sources:[6,3,2,0,5,4,0,2],nodeOffset:[[0,13.5],[50,20]],inputted:0},
+		{id:4,x:664,y:285,links:[[[1,0]]],inputStates:[null],outputStates:[null],sources:[7,6,3,2,0,5,4,0,2],nodeOffset:[[0,20],[62.217,20]],inputted:0}
+	]},
+	{name:"MuX",core:false,in:["default","alternative","choose alternative?"],out:["chosen input"],dependencies:[5,4,6,2],memory:[],innards:[
+		{id:0,x:434,y:265,name:"default",links:[[[5,0]]],inputStates:[],outputStates:[false],sources:[0],nodeOffset:[[0,26.5],[80.016,20]],inputted:0,state:false},
+		{id:1,x:814,y:307,name:"chosen input",links:[],inputStates:[null],outputStates:[],sources:[1,7,5,6,3,0,4,3,2],nodeOffset:[[0,20],[133.366,26.5]],inputted:0,state:false},
+		{id:0,x:403,y:306,name:"alternative",links:[[[4,0]]],inputStates:[],outputStates:[false],sources:[2],nodeOffset:[[0,26.5],[112.25,20]],inputted:0,state:false},
+		{id:0,x:322,y:371,name:"choose alternative?",links:[[[4,1],[6,0]]],inputStates:[],outputStates:[false],sources:[3],nodeOffset:[[0,26.5],[193.383,20]],inputted:0,state:false},
+		{id:5,x:653,y:341,links:[[[7,1]]],inputStates:[false,false],outputStates:[false],sources:[4,3,2],nodeOffset:[[0,13.5],[62.233,20]],inputted:2},
+		{id:5,x:654,y:272,links:[[[7,0]]],inputStates:[false,true],outputStates:[false],sources:[5,6,3,0],nodeOffset:[[0,13.5],[62.233,20]],inputted:2},
+		{id:4,x:562,y:290,links:[[[5,1]]],inputStates:[false],outputStates:[true],sources:[6,3],nodeOffset:[[0,20],[62.216,20]],inputted:1},
+		{id:6,x:741,y:306,links:[[[1,0]]],inputStates:[false,false],outputStates:[false],sources:[7,5,6,3,0,4,3,2],nodeOffset:[[0,13.5],[50,20]],inputted:2}
+	]},
+	{name:"memory cell",core:false,in:["value","set value?"],out:["stored value"],dependencies:[3,8,5,4,6,2],memory:[["cell",false]],innards:[
+		{id:0,x:336,y:271,name:"value",links:[[[4,1]]],inputStates:[],outputStates:[false],sources:[0],nodeOffset:[[0,26.5],[67.799,20]],inputted:0,state:false},
+		{id:1,x:636,y:289,name:"stored value",links:[],inputStates:[null],outputStates:[],sources:[1],nodeOffset:[[0,20],[128.916,26.5]],inputted:0,state:false},
+		{id:3,x:434,y:242,name:"cell",memory:false,links:[[[1,0],[4,0]]],inputStates:[null],outputStates:[false],sources:[],nodeOffset:[[0,20],[50.016,20]],inputted:0,memory:false,state:false},
+		{id:0,x:328,y:321,name:"set value?",links:[[[4,2]]],inputStates:[],outputStates:[false],sources:[3],nodeOffset:[[0,26.5],[111.133,20]],inputted:0,state:false},
+		{id:8,x:529,y:328,links:[[[2,0]]],inputStates:[false,false,false],outputStates:[false],sources:[4,3,0],nodeOffset:[[0,11.5],[61.116,24.5]],inputted:3}]
+	}
 ]
 sidebarScroll = -50
-editing = 5
+editing = 8
+switchTo(editing) // so that it caches so it doesnt crash if u press save as new button on initial launch
 
 var disabledBlocks = [editing]
 
@@ -644,20 +728,38 @@ setInterval(render, 30)
 //render()
 
 
-function execBlock(id, inputs) {
+function execBlock(id, inputs, memory) {
 	//console.log(id,inputs)
 	if (customBlocks[id].core) { // atomic blocks. executed behind the scenes.
 		switch (id) {
 			case NAND:
-				return [!(inputs[0]&&inputs[1])]
+				return [[!(inputs[0]&&inputs[1])],[]]
 			default:
-				throw Error(`Attempted to execute atomic block #${id} (${block.name}) which does not have any executable code. :c`)
+				throw Error(`Attempted to execute atomic block #${id} (${customBlocks[id].name}) which does not have any executable code. :c`)
 		}
 	} else {
-		if (inputs) var block = JSON.parse(JSON.stringify(customBlocks[id])) // gotta make like a clone i guess
+		if (inputs) { var block = JSON.parse(JSON.stringify(customBlocks[id])); block.memory = memory || customBlocks[id].memory } // gotta make like a clone i guess
 		else var block = customBlocks[id]
-
 		var allResults = []
+		var allMemory = []
+
+		// execute from the DFFs
+		block.memory.forEach(([key,value])=>{
+			if (typeof(key)!=='string') return;
+			var start = block.innards.find(x=>x.id==DFF && x.name == key)
+			start.state = memory?memory.find(x=>x[0]==key)[1]:value
+			start.outputStates = [start.state]
+
+			for (let j=0; j<start.links.length; j++) {
+				for (let k=0; k<start.links[j].length; k++) {
+					let [res, mems] = distribute(block, start.links[j][k], start.state)
+					allResults.push(...res)
+					allMemory.push(...mems)
+				}
+			}
+		})
+
+		// execute from the INPUTs
 		for (let i=0; i<block.in.length; i++) {
 			var start = block.innards.find(x=>x.id==INPUT && x.name == block.in[i])
 			if (inputs) start.state = inputs[i];
@@ -665,42 +767,53 @@ function execBlock(id, inputs) {
 			// now we want to distribute to everything!!!
 			for (let j=0; j<start.links.length; j++) {
 				for (let k=0; k<start.links[j].length; k++) {
-					allResults.push(...distribute(block, start.links[j][k], start.state))
+					let [res, mems] = distribute(block, start.links[j][k], start.state)
+					allResults.push(...res)
+					allMemory.push(...mems)
 				}
 			}
 		}
+
 		//console.log('--- results ---')
 		var outs = []
 		allResults.forEach(([key, value])=>{
 			outs[block.out.findIndex(x=>x==key)] = value
 		})
-		return outs
+		if (!inputs) block.memory = allMemory;
+		return [outs, allMemory]
 	}
 }
 
 function distribute(block, [instance, node], value) {
 	//console.log("distribute()",instance,node,value)
 
-	if (block.innards[instance].id == OUTPUT) { block.innards[instance].state=value; return [[block.innards[instance].name, value]] }
+	if (block.innards[instance].id == OUTPUT) { block.innards[instance].state=value; return [[[block.innards[instance].name, value]], []] }
+	if (block.innards[instance].id == DFF) { block.innards[instance].memory=value; return [[], [[block.innards[instance].name, value]]] }
+
+
 	block.innards[instance].inputStates[node] = value
 	if (++block.innards[instance].inputted == block.innards[instance].inputStates.length) {
-		let outs = execBlock(block.innards[instance].id, block.innards[instance].inputStates)
+		let [outs,memory] = execBlock(block.innards[instance].id, block.innards[instance].inputStates)
+	//console.log(instance, block.innards[instance].inputStates, outs, memory)
 		block.innards[instance].outputStates = outs
 
 		var allResults = []
+		var allMemory = memory.length>0?[[instance, block.id], memory]:[]
 
 		let links = block.innards[instance].links
 		for (let i=0; i<links.length; i++) {
 			for (let j=0; j<links[i].length; j++) {
-				let res = distribute(block, links[i][j], outs[i])
+				let [res, mems] = distribute(block, links[i][j], outs[i])
 				allResults.push(...res)
+				allMemory.push(...mems)
 			}
 		}
 
-		return allResults
+		if (memory.length>0) block.innards[instance].memory = memory
+		return [allResults, allMemory]
 	}
 
-	return []
+	return [[],[]]
 }
 
 function cullInputs(domain, [instance, node]) {
@@ -712,15 +825,15 @@ function cullInputs(domain, [instance, node]) {
 					if (link[0]==instance && link[1]==node) {
 						// break the linkage
 						customBlocks[domain].innards[i].links[j].splice(indx, 1)
-						deletedSources.push(...customBlocks[domain].innards[i].sources, i)
+						deletedSources.push(...customBlocks[domain].innards[i].sources)
 					}
 				})
 			}
 		}
+		//console.log(deletedSources)
 		// then recursively remove those sources
 		recursiveSourceEdit(domain, instance, [], deletedSources)
 	} else {
-		console.log('p')
 		for (let node=0; node<customBlocks[customBlocks[domain].innards[instance].id].in.length; node++) {
 			cullInputs(domain, [instance, node])
 		}
@@ -729,9 +842,10 @@ function cullInputs(domain, [instance, node]) {
 
 function recursiveSourceEdit(domain, instance, addedSources, removedSources) {
 	let block = customBlocks[domain].innards[instance]
+	if (block.id == DFF) return
 	block.sources.push(...addedSources)
 	for (let i=0; i<removedSources.length; i++) {
-		block.sources.splice(block.sources.indexOf(removedSources[i]))
+		block.sources.splice(block.sources.indexOf(removedSources[i]),1)
 	}
 
 	for (let i=0; i<block.links.length; i++) {
@@ -740,3 +854,15 @@ function recursiveSourceEdit(domain, instance, addedSources, removedSources) {
 		}
 	}
 }
+
+/* memory reference sheet
+MEMORY ::= Array [ INNER ]
+	INNER ::= INNER, INNER || DFF || BLOCK || null
+		DFF ::= Array [KEY, VALUE]
+			KEY ::= String .name of dff block within whatever scope	
+			VALUE ::= Boolean true || false
+		BLOCK ::= Array [INDICES, MEMORY]
+			INDICES ::= Array [INDEX, TYPE]
+				INDEX ::= Number instancenum of block so like the question marks within block.innards[??] 	
+				TYPE ::= Number the id of block so like block.inards[INDEX].id which tells u customBlocks[??]	
+*/
