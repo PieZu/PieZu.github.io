@@ -435,13 +435,11 @@ canvas.onmouseup = (e) => {
 	switch (interactive_zones[mouseselect][4]) {
 		case "block":
 			if (mouse.x <= LAYOUT.sidebar.width) { // put back
-				customBlocks[editing].innards.splice(dragging_placed,1)
-				// also delete any references in links anywhere
-				for (let i=0; i<customBlocks[editing].innards.length; i++) {
-					for (let j=0; j<customBlocks[editing].innards[i].links.length; j++) {
-						customBlocks[editing].innards[i].links[j] = customBlocks[editing].innards[i].links[j].filter(([block,node])=>block!==dragging_placed).map(([block,node])=>[block>dragging_placed?--block:block,node])
-					}
+				// delete all references xo
+				for (let i=0; i<customBlocks[editing].innards[dragging_placed].outputStates.length; i++) {
+					cullInputs(editing, [dragging_placed, i])
 				}
+				customBlocks[editing].innards.splice(dragging_placed,1)
 			}
 			dragging = dragging_placed = false;
 			break;
@@ -520,17 +518,51 @@ function switchTo(n) {
 function calculateBlockStats(n) {
 	// function will check how many input & output nodes in current block and what it contains and stuff.. so those things can be dynamically found and used in other stuff yeahh
 	let blocksused = new Set() // so we cant use this block in other ones and make an infinite loop.
-	customBlocks[n].in = []
-	customBlocks[n].out = []
+	let newIn = []
+	let newOut = []
 	for (let i=0; i<customBlocks[n].innards.length; i++) {
 		if (customBlocks[n].innards[i].id == INPUT) {
-			customBlocks[n].in.push(customBlocks[n].innards[i].name)
+			newIn.push(customBlocks[n].innards[i].name)
 		} else if (customBlocks[n].innards[i].id == OUTPUT) {
-			customBlocks[n].out.push(customBlocks[n].innards[i].name)
+			newOut.push(customBlocks[n].innards[i].name)
 		} else {
 			blocksused.add(customBlocks[n].innards[i].id)
 		}
 	}
+	newIn.sort((a,b)=>{
+		var x = customBlocks[n].innards.findIndex(x=>x.id==INPUT && x.name == a).y
+		var y = customBlocks[n].innards.findIndex(x=>x.id==INPUT && x.name == b).y
+		return (x < y) ? -1 : ((x > y) ? 1 : 0)})
+
+	let replaces = {}
+	let toDelete = []
+	for (let i=0; i<customBlocks[n].in.length; i++) {
+		let mapTo = newIn.indexOf(customBlocks[n].in[i])
+		if (mapTo !== i) {
+			//if (mapTo == -1) toDelete.push(i)
+			// else { 
+				replaces[i] = mapTo
+			//}
+		}
+	}
+	if (replaces.length>0) {
+		customBlocks.forEach(blockdomain=>{
+			if (!block.core) block.innards.forEach(block=>block.links.forEach(linkColl=>linkColl.forEach(link=>{if (blockdomain.innards[link[0]].id==n) {link[1] = replaces[link[1]] || link[1]}})))
+		})
+	}/*
+	if (toDelete.length) {
+		for (i=0;i<customBlocks.domain;i++) {
+			if (!customBlocks[i].core) {
+
+			}
+		}
+	}*/
+	customBlocks[n].in = newIn
+
+
+	// edit changed output ones
+	customBlocks[n].out = newOut
+
 
 	// now recursive search all the things
 	blocksused.forEach(n=>{
@@ -570,7 +602,7 @@ customBlocks = [
 	{name: "NAND", core:true, in:['a','b'], out:['out'], innards:[], dependencies: []},
 	{name: "AND", core:false, in:['a','b'], out:['a^b'], innards: [{id:0,x:423,y:202,name:"a",links:[[[2,0]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.12,20]],inputted:0},{id:0,x:426,y:250,name:"b",links:[[[2,1]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.115,20]],inputted:0},{id:2,x:502,y:227,links:[[[3,0],[4,0]]],inputStates:[null,null],outputStates:[null],sources:[],nodeOffset:[[0,13.5],[76.68,20]],inputted:0},{id:1,x:696,y:228,name:"a^b",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[51.62,26.5]],inputted:0},{id:4,x:611,y:229,links:[[[3,0]]],inputStates:[null],outputStates:[null],sources:[],nodeOffset:[[0,20],[62.22,20]],inputted:0}], dependencies: [4]},
 	{name:"NOT",core:false,in:["a"],out:["¬a"],innards:[{id:0,x:310,y:280,name:"a",links:[[[1,0],[1,1]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.115,20]],inputted:0},{id:2,x:367,y:280,links:[[[2,0]]],inputStates:[null,null],outputStates:[null],sources:[],nodeOffset:[[0,13.5],[76.68,20]],inputted:0},{id:1,x:468,y:280,name:"¬a",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[42.8,26.5]],inputted:0}],dependencies:[2]},
-	{name: "OR", core:false, in:['a','b'], out:['a∨b'], innards: [], dependencies: []},
+	{name: "OR", core:false, in:[], out:[], innards: [], dependencies: []},
 ]
 sidebarScroll = -50
 editing = 5
@@ -641,20 +673,27 @@ function distribute(block, [instance, node], value) {
 }
 
 function cullInputs(domain, [instance, node]) {
-	var deletedSources = []
-	for (let i=0; i<customBlocks[domain].innards.length; i++) {
-		for (let j=0; j<customBlocks[domain].innards[i].links.length; j++) {
-			customBlocks[domain].innards[i].links[j].forEach((link,indx)=>{
-				if (link[0]==instance && link[1]==node) {
-					// break the linkage
-					customBlocks[domain].innards[i].links[j].splice(indx, 1)
-					deletedSources.push(...customBlocks[domain].innards[i].sources, i)
-				}
-			})
+	if (node!==undefined) {
+		var deletedSources = []
+		for (let i=0; i<customBlocks[domain].innards.length; i++) {
+			for (let j=0; j<customBlocks[domain].innards[i].links.length; j++) {
+				customBlocks[domain].innards[i].links[j].forEach((link,indx)=>{
+					if (link[0]==instance && link[1]==node) {
+						// break the linkage
+						customBlocks[domain].innards[i].links[j].splice(indx, 1)
+						deletedSources.push(...customBlocks[domain].innards[i].sources, i)
+					}
+				})
+			}
+		}
+		// then recursively remove those sources
+		recursiveSourceEdit(domain, instance, [], deletedSources)
+	} else {
+		console.log('p')
+		for (let node=0; node<customBlocks[customBlocks[domain].innards[instance].id].in.length; node++) {
+			cullInputs(domain, [instance, node])
 		}
 	}
-	// then recursively remove those sources
-	recursiveSourceEdit(domain, instance, [], deletedSources)
 }
 
 function recursiveSourceEdit(domain, instance, addedSources, removedSources) {
