@@ -104,7 +104,7 @@ CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, ra
   ctx.closePath();
   return ctx
 }
-
+var tooltip = false
 var interactive_zones = []
 function render() {
 	if (playing) {
@@ -186,6 +186,15 @@ function render() {
 		ctx.strokeRect(x,y,w,h)
 	})
 	/**/
+
+	if (tooltip) {
+		ctx.font = "15px sans-serif"
+		let w = ctx.measureText(tooltip).width
+		ctx.fillStyle = "#000"
+		ctx.fillRect(mouse.x+20-5, mouse.y, w+10, 15+10)
+		ctx.fillStyle = "#fff"
+		ctx.fillText(tooltip, mouse.x+20, mouse.y+15)
+	}
 }
 
 SAVED_HEIGHT = 50
@@ -318,6 +327,7 @@ canvas.onmousemove = (e) => {
 	if (mouseselect==-1) { // mouseovers
 		let selected = interactive_zones[detectMouseover()]
 		canvas.style.cursor = mouseover==0?"default":"pointer"
+		tooltip = false
 		switch (selected[4]) {
 			case "sidebarresize":
 				canvas.style.cursor = "ew-resize"
@@ -333,6 +343,12 @@ canvas.onmousemove = (e) => {
 			case "rename": 
 				canvas.style.cursor = "text"
 				break; 
+			case "innode":
+				tooltip = customBlocks[customBlocks[editing].innards[selected[6]].id].in[selected[5]]
+				break;
+			case "outnode":
+				tooltip = customBlocks[customBlocks[editing].innards[selected[6]].id].out[selected[5]]
+				break;
 		}
 	} else { // draggings
 		switch (interactive_zones[mouseselect][4]) {
