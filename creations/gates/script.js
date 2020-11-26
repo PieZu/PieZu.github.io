@@ -80,10 +80,11 @@ const LAYOUT = {
 	}
 }
 
+canvas.style.background = PALLETE.background
 ctx.font = FONT_HEIGHT+"px sans-serif"
 ctx.lineWidth = LAYOUT.line.width
 
-playing = false
+playing = true
 var cache 
 // https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius) {
@@ -252,14 +253,26 @@ function renderBlock(id, x, y, colour, customname, instancenum) {
 	ctx.fillText(name, x + SAVED_PADDING, Math.round(y+ height/2 + FONT_HEIGHT/3))
 	
 	// draw nodes
+	 // inputs
 	var disabled = false
 	ctx.fillStyle = PALLETE.node.default
-	if (connecting && (connecting.isFromInput || connecting.from[0]==instancenum || customBlocks[editing].innards[instancenum].leadsTo.includes(connecting.from[0]))) { ctx.fillStyle = PALLETE.node.disabled; disabled=true }
+	if (connecting) { if (connecting.isFromInput || connecting.from[0]==instancenum || customBlocks[editing].innards[connecting.from[0]].sources.includes(instancenum)) { 
+			ctx.fillStyle = PALLETE.node.disabled; disabled=true 
+	}}
 	let nodeOffset = height/2 - LAYOUT.node.padding*(block.in.length-1)/2
 	for (let i=0; i<block.in.length; i++) { 
 		interactive_zones.push([...drawNode(x, y + nodeOffset + LAYOUT.node.padding*i), disabled?"disablednode":"innode",i])
 	}
-	if (connecting) { ctx.fillStyle = (connecting.isFromInput&&connecting.from[0]!==instancenum&&!customBlocks[editing].innards[connecting.from[0]].leadsTo.includes(instancenum))?PALLETE.node.default:PALLETE.node.disabled; disabled=true }
+	 // outputs
+	if (connecting) { 
+		if (!connecting.isFromInput || connecting.from[0]===instancenum || customBlocks[editing].innards[instancenum].sources.includes(connecting.from[0]) ) {
+			disabled = true
+			ctx.fillStyle = PALLETE.node.disabled			
+		} else {
+			disabled = false
+			ctx.fillStyle = PALLETE.node.default
+		}
+	}
 	let enodeOffset = height/2 - LAYOUT.node.padding*(block.out.length-1)/2 
 	for (let i=0; i<block.out.length; i++) { 
 		interactive_zones.push([...drawNode(x + width, y + enodeOffset + LAYOUT.node.padding*i), disabled?"disablednode":"outnode",i])
@@ -319,7 +332,7 @@ canvas.onmousemove = (e) => {
 			case "editname":
 			case "rename": 
 				canvas.style.cursor = "text"
-				break;
+				break; 
 		}
 	} else { // draggings
 		switch (interactive_zones[mouseselect][4]) {
@@ -373,6 +386,7 @@ canvas.onmousedown = (e) => {
 		case "innode":
 		case "outnode":
 			connecting = {from: [selected[6], selected[5]], sx:selected[0]+selected[2]/2, sy:selected[1]+selected[3]/2, isFromInput: selected[4]=="innode", to:false}
+			if (connecting.isFromInput) cullInputs(editing, connecting.from)
 			//console.log(JSON.stringify(connecting).replace(/\\/g,""))
 			break;
 	}
@@ -439,7 +453,7 @@ canvas.onmouseup = (e) => {
 					links:JSON.parse("["+"[],".repeat(customBlocks[dragging.id].out.length).slice(0,-1)+"]"), 
 					inputStates: Array(customBlocks[dragging.id].in.length), 
 					outputStates: Array(customBlocks[dragging.id].out.length), 
-					leadsTo:[], 
+					sources:[], 
 					nodeOffset:[[0,0],[0,0]],
 					inputted: 0
 				})
@@ -450,15 +464,20 @@ canvas.onmouseup = (e) => {
 		case "disablednode":
 			if (connecting.to) {
 				if (connecting.isFromInput) {
-					if (indx(customBlocks[editing].innards[connecting.from[0]].links, connecting.to) === -1) { // otherwise it already exists so skip it
-						customBlocks[editing].innards[connecting.to[0]].links[connecting.to[1]].push(connecting.from)
-						// idk recursive add to the leadsTo
-					}
+					var startVals = connecting.to,
+						finishVals = connecting.from
 				} else {
-					if (indx(customBlocks[editing].innards[connecting.to[0]].links, connecting.from) === -1) {
-						customBlocks[editing].innards[connecting.from[0]].links[connecting.from[1]].push(connecting.to)
-						// and yea recursive but backwards
-					}
+					var startVals = connecting.from,
+						finishVals = connecting.to
+				}
+				var start = customBlocks[editing].innards[startVals[0]],
+					finish = customBlocks[editing].innards[finishVals[0]]
+
+				if (indx(finish.links, connecting.to) === -1) { // otherwise it already exists so skip it
+					if (!connecting.isFromInput) { cullInputs(editing, connecting.to) }
+
+					start.links[startVals[1]].push(finishVals)
+					recursiveSourceEdit(editing, finishVals[0], [...start.sources, startVals[0]], [])
 				}
 			}
 			connecting = false
@@ -526,7 +545,7 @@ function calculateBlockStats(n) {
 }
 
 function generateNewBlock() {
-	return customBlocks.push({name: "new block", core:false, in:["INPUT"], out:["OUTPUT"], innards: [{id:0,x:405,y:265,name:"INPUT",links:[[]],inputStates:[],outputStates:[null],leadsTo:[],nodeOffset:[[0,26.5],[80,20]],inputted:0},{id:1,x:1004,y:265,name:"OUTPUT",links:[],inputStates:[null],outputStates:[],leadsTo:[],nodeOffset:[[0,20],[102.21666717529297,26.5]],inputted:0}], dependencies: []})-1
+	return customBlocks.push({name: "new block", core:false, in:["INPUT"], out:["OUTPUT"], innards: [{id:0,x:405,y:265,name:"INPUT",links:[[]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[80,20]],inputted:0},{id:1,x:1004,y:265,name:"OUTPUT",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[102.21666717529297,26.5]],inputted:0}], dependencies: []})-1
 }
 
 function detectMouseover() {
@@ -549,8 +568,8 @@ customBlocks = [
 	{name: "INPUT", core:true, in:[], out:['input'], innards: [], dependencies: []},
 	{name: "OUTPUT", core:true, in:['output'], out:[], innards: [], dependencies: []},
 	{name: "NAND", core:true, in:['a','b'], out:['out'], innards:[], dependencies: []},
-	{name: "AND", core:false, in:['a','b'], out:['a^b'], innards: [{id:0,x:423,y:202,name:"a",links:[[[2,0]]],inputStates:[],outputStates:[null],leadsTo:[],nodeOffset:[[0,26.5],[31.12,20]],inputted:0},{id:0,x:426,y:250,name:"b",links:[[[2,1]]],inputStates:[],outputStates:[null],leadsTo:[],nodeOffset:[[0,26.5],[31.115,20]],inputted:0},{id:2,x:502,y:227,links:[[[3,0],[4,0]]],inputStates:[null,null],outputStates:[null],leadsTo:[],nodeOffset:[[0,13.5],[76.68,20]],inputted:0},{id:1,x:696,y:228,name:"a^b",links:[],inputStates:[null],outputStates:[],leadsTo:[],nodeOffset:[[0,20],[51.62,26.5]],inputted:0},{id:4,x:611,y:229,links:[[[3,0]]],inputStates:[null],outputStates:[null],leadsTo:[],nodeOffset:[[0,20],[62.22,20]],inputted:0}], dependencies: [4]},
-	{name:"NOT",core:false,in:["a"],out:["¬a"],innards:[{id:0,x:310,y:280,name:"a",links:[[[1,0],[1,1]]],inputStates:[],outputStates:[null],leadsTo:[],nodeOffset:[[0,26.5],[31.115,20]],inputted:0},{id:2,x:367,y:280,links:[[[2,0]]],inputStates:[null,null],outputStates:[null],leadsTo:[],nodeOffset:[[0,13.5],[76.68,20]],inputted:0},{id:1,x:468,y:280,name:"¬a",links:[],inputStates:[null],outputStates:[],leadsTo:[],nodeOffset:[[0,20],[42.8,26.5]],inputted:0}],dependencies:[2]},
+	{name: "AND", core:false, in:['a','b'], out:['a^b'], innards: [{id:0,x:423,y:202,name:"a",links:[[[2,0]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.12,20]],inputted:0},{id:0,x:426,y:250,name:"b",links:[[[2,1]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.115,20]],inputted:0},{id:2,x:502,y:227,links:[[[3,0],[4,0]]],inputStates:[null,null],outputStates:[null],sources:[],nodeOffset:[[0,13.5],[76.68,20]],inputted:0},{id:1,x:696,y:228,name:"a^b",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[51.62,26.5]],inputted:0},{id:4,x:611,y:229,links:[[[3,0]]],inputStates:[null],outputStates:[null],sources:[],nodeOffset:[[0,20],[62.22,20]],inputted:0}], dependencies: [4]},
+	{name:"NOT",core:false,in:["a"],out:["¬a"],innards:[{id:0,x:310,y:280,name:"a",links:[[[1,0],[1,1]]],inputStates:[],outputStates:[null],sources:[],nodeOffset:[[0,26.5],[31.115,20]],inputted:0},{id:2,x:367,y:280,links:[[[2,0]]],inputStates:[null,null],outputStates:[null],sources:[],nodeOffset:[[0,13.5],[76.68,20]],inputted:0},{id:1,x:468,y:280,name:"¬a",links:[],inputStates:[null],outputStates:[],sources:[],nodeOffset:[[0,20],[42.8,26.5]],inputted:0}],dependencies:[2]},
 	{name: "OR", core:false, in:['a','b'], out:['a∨b'], innards: [], dependencies: []},
 ]
 sidebarScroll = -50
@@ -578,7 +597,8 @@ function execBlock(id, inputs) {
 		var allResults = []
 		for (let i=0; i<block.in.length; i++) {
 			var start = block.innards.find(x=>x.id==INPUT && x.name == block.in[i])
-			if (inputs) start.state = inputs[i]
+			if (inputs) start.state = inputs[i];
+			else start.outputStates = [start.state] // light the wire up
 			// now we want to distribute to everything!!!
 			for (let j=0; j<start.links.length; j++) {
 				for (let k=0; k<start.links[j].length; k++) {
@@ -618,4 +638,35 @@ function distribute(block, [instance, node], value) {
 	}
 
 	return []
+}
+
+function cullInputs(domain, [instance, node]) {
+	var deletedSources = []
+	for (let i=0; i<customBlocks[domain].innards.length; i++) {
+		for (let j=0; j<customBlocks[domain].innards[i].links.length; j++) {
+			customBlocks[domain].innards[i].links[j].forEach((link,indx)=>{
+				if (link[0]==instance && link[1]==node) {
+					// break the linkage
+					customBlocks[domain].innards[i].links[j].splice(indx, 1)
+					deletedSources.push(...customBlocks[domain].innards[i].sources, i)
+				}
+			})
+		}
+	}
+	// then recursively remove those sources
+	recursiveSourceEdit(domain, instance, [], deletedSources)
+}
+
+function recursiveSourceEdit(domain, instance, addedSources, removedSources) {
+	let block = customBlocks[domain].innards[instance]
+	block.sources.push(...addedSources)
+	for (let i=0; i<removedSources.length; i++) {
+		block.sources.splice(block.sources.indexOf(removedSources[i]))
+	}
+
+	for (let i=0; i<block.links.length; i++) {
+		for (let j=0; j<block.links[i].length; j++) {
+			recursiveSourceEdit(domain, block.links[i][j][0], addedSources, removedSources)
+		}
+	}
 }
