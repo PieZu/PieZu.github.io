@@ -87,7 +87,8 @@ const LAYOUT = {
 		enabled: true,
 		height: 20,
 		radius: 9
-	}
+	},
+	showZones: false
 }
 
 canvas.style.background = PALLETE.background
@@ -116,6 +117,7 @@ CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, ra
 }
 var tooltip = false
 var interactive_zones = []
+var scroll = {x:0, y:0}
 function render() {
 	if (playing) {
 		try{
@@ -129,7 +131,7 @@ function render() {
 
 	// reset
 	ctx.clearRect(0,0, canvas.width, canvas.height)
-	interactive_zones = [[0,0,canvas.width,canvas.height,"none"]]
+	interactive_zones = [[0,0,canvas.width,canvas.height,"background"]]
 
 	// draw all the connections
 	for (let i=0; i<customBlocks[editing].innards.length; i++) {
@@ -140,7 +142,7 @@ function render() {
 	
 	// draw all the inner block things
 	customBlocks[editing].innards.forEach((block,i)=>{
-		renderBlock(block.id, block.x, block.y, PALLETE.block.color, block.name, block.memory, i).forEach(([...args])=>interactive_zones.push([...args, i]))
+		renderBlock(block.id, block.x - scroll.x, block.y - scroll.y, PALLETE.block.color, block.name, block.memory, i).forEach(([...args])=>interactive_zones.push([...args, i]))
 	})
 
 	// render when connecting a node
@@ -169,6 +171,7 @@ function render() {
 	// sidebar
 	ctx.fillStyle = PALLETE.sidebar.background
 	ctx.fillRect(0,0,LAYOUT.sidebar.width,canvas.height)
+	interactive_zones.push([0,0, LAYOUT.sidebar.width, canvas.height, "sidebar"])	
 	interactive_zones.push([LAYOUT.sidebar.width-LAYOUT.sidebar.handlebar,0, LAYOUT.sidebar.handlebar*2, canvas.height, "sidebarresize"])
 
 	ctx.font = `${FONT_HEIGHT}px ${PALLETE.sidebar.fontFamily}`
@@ -195,11 +198,12 @@ function render() {
 		renderBlock(dragging.id, mouse.x - dragging.xOffset, mouse.y - dragging.yOffset, PALLETE.sidebar.dragging, dragging.name, dragging.memory, dragging_placed===false?undefined:dragging_placed)
 	}
 
-	/*
-	interactive_zones.forEach(([x,y,w,h],i)=>{
-		ctx.strokeStyle = i==mouseover?"green":"red"
-		ctx.strokeRect(x,y,w,h)
-	})
+	if (LAYOUT.showZones) {
+		interactive_zones.forEach(([x,y,w,h],i)=>{
+			ctx.strokeStyle = i==mouseover?"green":"red"
+			ctx.strokeRect(x,y,w,h)
+		})
+	}
 	/**/
 
 	if (tooltip) {
@@ -348,10 +352,10 @@ function renderConnection([startBlock, startNode], [endBlock, endNode]) {
 
 	let [_,[sx,sy]] = start.nodeOffset
 	let [[ex,ey],__] = end.nodeOffset
-	sx += start.x
-	ex = end.x
-	sy += start.y + LAYOUT.node.padding*startNode
-	ey += end.y + LAYOUT.node.padding*endNode
+	sx += start.x - scroll.x
+	ex = end.x - scroll.x
+	sy += start.y + LAYOUT.node.padding*startNode - scroll.y
+	ey += end.y + LAYOUT.node.padding*endNode - scroll.y
 
 //	console.log(sx,sy,ex,ey)
 	ctx.beginPath()
@@ -369,7 +373,7 @@ canvas.onmousemove = (e) => {
 
 	if (mouseselect==-1) { // mouseovers
 		let selected = interactive_zones[detectMouseover()]
-		canvas.style.cursor = mouseover==0?"default":"pointer"
+		canvas.style.cursor = "pointer"
 		switch (selected[4]) {
 			case "sidebarresize":
 				canvas.style.cursor = "ew-resize"
@@ -395,13 +399,16 @@ canvas.onmousemove = (e) => {
 				canvas.style.cursor = "default" // cant click it.. for now
 				tooltip = selected[5]
 				break;
+			case "sidebar":
+			case "background":
+				canvas.style.cursor = "default"
 		}
 	} else { // draggings
 		switch (interactive_zones[mouseselect][4]) {
 			case "block":
-				customBlocks[editing].innards[dragging_placed].x = mouse.x - dragging.xOffset
-				customBlocks[editing].innards[dragging_placed].y = mouse.y - dragging.yOffset
-			break;
+				customBlocks[editing].innards[dragging_placed].x = mouse.x - dragging.xOffset + scroll.x
+				customBlocks[editing].innards[dragging_placed].y = mouse.y - dragging.yOffset + scroll.y
+				break;
 			case "sidebarresize":
 				LAYOUT.sidebar.width = Math.max(mouse.x, LAYOUT.sidebar.handlebar)
 				LAYOUT.playbar.width = Math.max(LAYOUT.sidebar.width, LAYOUT.playbar.minwidth)
@@ -426,6 +433,13 @@ canvas.onmousemove = (e) => {
 				} else if (selected[4] == "disablednode") {
 					canvas.style.cursor = "not-allowed"
 				}
+				break;
+			case "sidebar":
+				sidebarScroll = scrollStart.y - mouse.y
+				break;
+			case "background":
+				scroll = {x: scrollStart.x-mouse.x, y: scrollStart.y-mouse.y}
+				break;
 		}
 	}
 }
@@ -433,6 +447,7 @@ canvas.onmousemove = (e) => {
 var mouseselect = -1
 var dragging = dragging_placed = false
 var connecting = false
+var scrollStart = false
 
 canvas.onmousedown = (e) => {
 	mouseselect = mouseover
@@ -454,6 +469,15 @@ canvas.onmousedown = (e) => {
 			if (connecting.isFromInput) cullInputs(editing, connecting.from)
 			//console.log(JSON.stringify(connecting).replace(/\\/g,""))
 			break;
+		case "sidebar":
+			canvas.style.cursor = "grabbing"
+			scrollStart = {y: sidebarScroll+mouse.y}
+			break;
+		case "background":
+			canvas.style.cursor = "grabbing"
+			scrollStart = {x: scroll.x + mouse.x, y: scroll.y + mouse.y}
+			break;
+
 	}
 }
 canvas.onmouseup = (e) => {
@@ -525,7 +549,7 @@ canvas.onmouseup = (e) => {
 			// place block
 			if (mouse.x > LAYOUT.sidebar.width) { // on stage
 				canvas.style.cursor = "grab"
-				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset, y:mouse.y-dragging.yOffset, name:dragging.name, 
+				customBlocks[editing].innards.push({id: dragging.id, x:mouse.x-dragging.xOffset+scroll.x, y:mouse.y-dragging.yOffset+scroll.y, name:dragging.name, 
 					links:JSON.parse("["+"[],".repeat(customBlocks[dragging.id].out.length).slice(0,-1)+"]"), 
 					inputStates: Array(customBlocks[dragging.id].in.length), 
 					outputStates: Array(customBlocks[dragging.id].out.length), 
@@ -562,7 +586,7 @@ canvas.onmouseup = (e) => {
 	}
 	
 	mouseselect = -1
-	canvas.onmousemove(e)
+	canvas.onmousemove(e) // trigger the onmousemove to reset things and select the next thing i guess
 }
 
 function indx(array, subduoarray) {
