@@ -183,10 +183,10 @@ function render() {
 	ctx.fillText("▶⏸"[playing*1],15,35)
 	interactive_zones.push([15 -3,10 -3, PALLETE.playbar.fontSize+6, PALLETE.playbar.fontSize+6, "toggleplay"])
 
-	for (let i=0; i<3; i++) {
+	for (let i=0; i<2; i++) {
 		let x = 240-(i+1)*(PALLETE.playbar.fontSize+10)+5
-		ctx.fillText(['❌','💾','➕'][i], x,35)
-		interactive_zones.push([x+5-3, 10-3, PALLETE.playbar.fontSize+6, PALLETE.playbar.fontSize+6, ["clear", "savenew", "createnew"][i]])
+		ctx.fillText(['❌','➕'][i], x,35)
+		interactive_zones.push([x+5-3, 10-3, PALLETE.playbar.fontSize+6, PALLETE.playbar.fontSize+6, ["clear", "createnew"][i]])
 
 	}
 
@@ -481,12 +481,6 @@ canvas.onmouseup = (e) => {
 				break;
 			case "createnew":
 				switchTo(generateNewBlock())
-				break;
-			case "savenew":
-				let newedit = generateNewBlock()
-				customBlocks[newedit] = customBlocks[editing]
-				customBlocks[editing] = cache
-				switchTo(newedit)
 				break;
 			case "clear":
 				if (confirm("are you sure you want to remove everything in this block?")) {
