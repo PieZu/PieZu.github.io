@@ -94,7 +94,7 @@ canvas.style.background = PALLETE.background
 ctx.font = FONT_HEIGHT+"px sans-serif"
 ctx.lineWidth = LAYOUT.line.width
 
-playing = true
+playing = false
 var cache 
 // https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius) {
@@ -140,7 +140,7 @@ function render() {
 	
 	// draw all the inner block things
 	customBlocks[editing].innards.forEach((block,i)=>{
-		renderBlock(block.id, block.x, block.y, PALLETE.block.color, block.name, i).forEach(([...args])=>interactive_zones.push([...args, i]))
+		renderBlock(block.id, block.x, block.y, PALLETE.block.color, block.name, block.memory, i).forEach(([...args])=>interactive_zones.push([...args, i]))
 	})
 
 	// render when connecting a node
@@ -192,7 +192,7 @@ function render() {
 
 	// render when dragging a thing
 	if (dragging) {
-		renderBlock(dragging.id, mouse.x - dragging.xOffset, mouse.y - dragging.yOffset, PALLETE.sidebar.dragging, dragging.name, dragging_placed===false?undefined:dragging_placed)
+		renderBlock(dragging.id, mouse.x - dragging.xOffset, mouse.y - dragging.yOffset, PALLETE.sidebar.dragging, dragging.name, dragging.memory, dragging_placed===false?undefined:dragging_placed)
 	}
 
 	/*
@@ -237,7 +237,7 @@ function renderCustom({name, core}, i) {
 	ctx.restore(noclip) // reset it back to nothing
 }
 
-function renderBlock(id, x, y, colour, customname, instancenum) {
+function renderBlock(id, x, y, colour, customname, memory, instancenum) {
 	var interactive_zones = [] // make a local one so we dont have to actually add them 
 
 	let block = customBlocks[id]
@@ -258,15 +258,27 @@ function renderBlock(id, x, y, colour, customname, instancenum) {
 			ctx.roundRect(x+width-LAYOUT.block.endpoint.radius-LAYOUT.bulb.radius, y, LAYOUT.bulb.width+LAYOUT.block.endpoint.radius+LAYOUT.bulb.radius, height, LAYOUT.bulb.radius).fill()
 		}
 	 // also the bulb thing for memory/savedstate
-	 } else if (instancenum && LAYOUT.memory.enabled && customBlocks[editing].innards[instancenum].memory!==undefined) {
-	 	var mem = customBlocks[editing].innards[instancenum].memory
-	 	if (typeof(mem) == 'boolean') mem = [mem];
-	 	else mem = mem.flat().filter(x=>typeof(x)=='boolean');
+	 } else if (LAYOUT.memory.enabled && memory !== undefined) {
+	 	var mem = []
+	 	if (typeof(memory) == 'boolean') mem = [[customname, memory]]
+	 	else {
+	 		let memVals = traverseMemory(memory)
+	 		for (memVal of memVals) {
+				if (typeof(memVal[1]) == 'boolean') mem.push(memVal)
+	 		}
+	 	}
+	
 
 	 	for (i=0;i<mem.length;i++) {
-		 	ctx.fillStyle = mem[i]?PALLETE.memory.on:PALLETE.memory.off
-	 		ctx.roundRect(x+(width/mem.length*i), y-LAYOUT.memory.height, width/mem.length, LAYOUT.memory.height+LAYOUT.block.radius+LAYOUT.memory.radius, LAYOUT.memory.radius).fill()
-	 	}
+	 		let dimensions = [x+(width/mem.length*i), y-LAYOUT.memory.height, width/mem.length, LAYOUT.memory.height+LAYOUT.block.radius+LAYOUT.memory.radius]
+
+	 		// draw the light
+ 			ctx.fillStyle = mem[i][1]?PALLETE.memory.on:PALLETE.memory.off
+ 			ctx.roundRect(...dimensions, LAYOUT.memory.radius).fill()
+ 			// make interactive area
+ 			interactive_zones.push([...dimensions, 'statebulb', mem[i][0]])
+ 			// todo: make it possible to toggle this.. kinda hard to do efficiently since it can be nested arbitrarily :/?
+		}
 
 	 	// also make it like a stronger bottom or it will look rlly ugly
 	 	ctx.fillStyle = colour
@@ -379,6 +391,10 @@ canvas.onmousemove = (e) => {
 			case "outnode":
 				tooltip = customBlocks[customBlocks[editing].innards[selected[6]].id].out[selected[5]]
 				break;
+			case "statebulb":
+				canvas.style.cursor = "default" // cant click it.. for now
+				tooltip = selected[5]
+				break;
 		}
 	} else { // draggings
 		switch (interactive_zones[mouseselect][4]) {
@@ -426,7 +442,7 @@ canvas.onmousedown = (e) => {
 			dragging_placed = selected[6]
 		case "dragcustom":
 			canvas.style.cursor = "grabbing"
-			dragging = {id:selected[5], xOffset: mouse.x-selected[0], yOffset: mouse.y-selected[1]}
+			dragging = {id:selected[5], xOffset: mouse.x-selected[0], yOffset: mouse.y-selected[1], memory:customBlocks[selected[5]].memory}
 			if (dragging.id==INPUT||dragging.id==OUTPUT||dragging.id==DFF) {
 				dragging.name = dragging_placed!==false?customBlocks[editing].innards[selected[6]].name:verifyName(["INPUT","OUTPUT",null,"D-FlipFlop"][dragging.id], dragging.id);
 				if (dragging_placed) dragging.state = customBlocks[editing].innards[selected[6]].state
@@ -458,8 +474,10 @@ canvas.onmouseup = (e) => {
 				break;
 			case "editname":
 				newName = prompt('enter new name')
+				let oldName = customBlocks[editing].innards[selected[6]].name
 				if (newName!==null) customBlocks[editing].innards[selected[6]].name = verifyName(newName, selected[5])
-					// also edit any references to it in links and stuff
+				// also edit any references to it in links and stuff
+				if (selected[5]!==DFF) customBlocks[editing][["in","out"][selected[5]]][customBlocks[editing][["in","out"][selected[5]]].indexOf(oldName)] = customBlocks[editing].innards[selected[6]].name
 				break;
 			case "createnew":
 				switchTo(generateNewBlock())
@@ -486,7 +504,7 @@ canvas.onmouseup = (e) => {
 			if (mouse.x <= LAYOUT.sidebar.width) { // put back
 				// delete all references xo
 				cullInputs(editing, [dragging_placed])
-				customBlocks[editing].innards.splice(dragging_placed,1)
+				let id = customBlocks[editing].innards.splice(dragging_placed,1)[0].id
 				// now make all the indices go down one
 				customBlocks[editing].innards.forEach(block=>{
 					block.links.forEach(linkCol=>linkCol.forEach(link=>{if(link[0]>dragging_placed) link[0]--}))
@@ -494,6 +512,17 @@ canvas.onmouseup = (e) => {
 						if (block.sources[i]>dragging_placed) block.sources[i]--
 					}
 				})
+				// also do the thing for the memory
+				;for (let i=3; i<customBlocks.length; i++) {
+						[...traverseMemory(customBlocks[i].memory)].forEach(([key,data])=>{
+						console.log(key, data,id)
+						if (typeof(key)==='string')  return;
+						if (key[1]==editing) {
+							if (key[0] === id) data = [] // delete it? cant just splice cuz then it wont go to the next
+							else if (key[0] > id) key[0]--
+						}
+					})
+				}
 
 			}
 			dragging = dragging_placed = false;
@@ -508,7 +537,8 @@ canvas.onmouseup = (e) => {
 					outputStates: Array(customBlocks[dragging.id].out.length), 
 					sources: dragging.id==DFF?[] : [customBlocks[editing].innards.length], 
 					nodeOffset:[[0,0],[0,0]],
-					inputted: 0
+					inputted: 0,
+					memory: dragging.memory
 				})
 			} else { canvas.style.cursor = "default" }
 			dragging = false;
@@ -583,13 +613,25 @@ function calculateBlockStats(n) {
 				break;
 			case OUTPUT:
 				newOut.push(customBlocks[n].innards[i])
+				// ok now like check if outputs are purely memory based in which case they can be self-linked :3
+				customBlocks[n].innards[i].outputStates = true
+				let sources = customBlocks[n].innards[i].sources
+				for (let i=0; i<sources.length; i++) {
+					if (customBlocks[n].innards[i].id == INPUT) {
+						customBlocks[n].innards[i].outputStates = false
+						break;
+					}
+				}
 				break;
 			default:
 				blocksused.add(customBlocks[n].innards[i].id)
 				if (customBlocks[n].innards[i].memory!==undefined) memHolders.push([customBlocks[n].innards[i], i])
 		}
+		// also make sure to reset all outConnections
+		customBlocks[n].innards[i].inputted=0
 	}
-	let currMemory = customBlocks[n].memory
+	let currMemory = customBlocks[n].memory || []
+	//console.log(currMemory)
 	customBlocks[n].memory = memHolders.map(([block,i])=>{
 		if (block.id==DFF) {
 			return [block.name, (currMemory.find(x=>x[0]==block.name) || [null, false])[1]]
@@ -598,42 +640,53 @@ function calculateBlockStats(n) {
 		}
 	})
 
-	newIn.sort((a,b)=>{
-		var x = a.y;
-		var y = b.y;
-		return (x < y) ? -1 : ((x > y) ? 1 : 0)})
+	// like.. check for change to inputs ... the funny thing is i made the inputs named (uniquely) precisely so i wouldnt have to do this kinda thing.. meh too hard to implement how i planned xD
+	newIn.sort(byY)
 	newIn = newIn.map(x=>x.name)
-	newOut = newOut.map(x=>x.name)
-	//console.log(newIn)
 
-	let replaces = {}
+	let replaces = []
 	let toDelete = []
+	let needsReplacing = false
 	for (let i=0; i<customBlocks[n].in.length; i++) {
-		let mapTo = newIn.indexOf(customBlocks[n].in[i])
-		if (mapTo !== i) {
-			//if (mapTo == -1) toDelete.push(i)
-			// else { 
-				replaces[i] = mapTo
-			//}
+		let index = newIn.indexOf(customBlocks[n].in[i])
+		replaces[i] = index
+		if (index!==i) needsReplacing = true
+	}
+	if (needsReplacing) {
+		for (let i=3; i<customBlocks.length; i++) { // 3 is the number of atomic / core blocks.. the ones with no innards */shrug*
+			for (let j=0; j<customBlocks[i].innards.length; j++) {
+				customBlocks[i].innards[j].links.forEach((linkColl,index)=>{
+					customBlocks[i].innards[j].links[index] = linkColl.map(link=>	customBlocks[i].innards[link[0]].id==n ? [link[0], replaces[link[1]]] : link).filter(x=>x[1]!==-1)
+				})
+			}
 		}
 	}
 
-	if (Object.keys(replaces).length>0) {
-		customBlocks.forEach(blockdomain=>{
-			if (!blockdomain.core) blockdomain.innards.forEach(block=>block.links.forEach(linkColl=>linkColl.forEach(link=>{if (blockdomain.innards[link[0]].id==n) {link[1] = replaces[link[1]] || link[1]}})))
-		})
-	}/*
-	if (toDelete.length) {
-		for (i=0;i<customBlocks.domain;i++) {
-			if (!customBlocks[i].core) {
-
+	// now do the same for outputs
+	newOut.sort(byY)
+	newOut = newOut.map(x=>x.name)
+	replaces = Array(customBlocks[n].out.length)
+	needsReplacing = false
+	for (let i=0; i<customBlocks[n].out.length; i++) {
+		index = newOut.indexOf(customBlocks[n].out[i])
+		replaces[index] = i
+		if (index!==i) needsReplacing = true
+	}
+	if (needsReplacing) {
+		for (let i=3; i<customBlocks.length; i++) {
+			for (let j=0; j<customBlocks[i].innards.length; j++) {
+				if (customBlocks[i].innards[j].id == n) {
+					let oldLinks = JSON.parse(JSON.stringify(customBlocks[i].innards[j].links))
+					for (let k=0; k<replaces.length; k++) {
+						customBlocks[i].innards[j].links[k] = oldLinks[replaces[k]]
+					}
+					customBlocks[i].innards[j].links = customBlocks[i].innards[j].links.filter(x=>x) // remove the undefined ones (deleted)
+				}
 			}
 		}
-	}*/
+	}
+	// commit ur changes ^uwu^
 	customBlocks[n].in = newIn
-
-
-	// edit changed output ones
 	customBlocks[n].out = newOut
 
 	// now recursive search all the things
@@ -643,9 +696,12 @@ function calculateBlockStats(n) {
 	customBlocks[n].dependencies = [...blocksused]
 	// now everything dependant on this also needs those new dependencies
 	customBlocks.forEach(block=>{if(block.dependencies.includes(n)) blocksused.forEach(n=>{if (!block.dependencies.includes(n)) block.dependencies.push(n)})})
+}
 
-	// also make sure to reset all outConnections
-	customBlocks[n].innards.forEach(block=>block.inputted=0)
+function byY (a,b) {
+	var x = a.y;
+	var y = b.y;
+	return (x < y) ? -1 : ((x > y) ? 1 : 0)
 }
 
 function generateNewBlock() {
@@ -729,7 +785,8 @@ setInterval(render, 30)
 
 
 function execBlock(id, inputs, memory) {
-	//console.log(id,inputs)
+	//console.log("executing",id,inputs,memory)
+	
 	if (customBlocks[id].core) { // atomic blocks. executed behind the scenes.
 		switch (id) {
 			case NAND:
@@ -779,7 +836,7 @@ function execBlock(id, inputs, memory) {
 		allResults.forEach(([key, value])=>{
 			outs[block.out.findIndex(x=>x==key)] = value
 		})
-		if (!inputs) block.memory = allMemory;
+		block.memory = allMemory;
 		return [outs, allMemory]
 	}
 }
@@ -793,12 +850,15 @@ function distribute(block, [instance, node], value) {
 
 	block.innards[instance].inputStates[node] = value
 	if (++block.innards[instance].inputted == block.innards[instance].inputStates.length) {
-		let [outs,memory] = execBlock(block.innards[instance].id, block.innards[instance].inputStates)
-	//console.log(instance, block.innards[instance].inputStates, outs, memory)
+		//console.log("mem", block, block.memory?block.memory.find(([key,value])=>key[0]===instance):undefined)
+		let [outs,memory] = execBlock(block.innards[instance].id, block.innards[instance].inputStates, block.innards[instance].memory?block.memory.find(([key,value])=>key[0]===instance)[1]:undefined)
+		//console.log(outs, memory)
+		//console.log('--')
+		//console.log(instance, block.innards[instance].inputStates, outs, memory)
 		block.innards[instance].outputStates = outs
 
 		var allResults = []
-		var allMemory = memory.length>0?[[instance, block.id], memory]:[]
+		var allMemory = memory.length>0?[[[instance, block.innards[instance].id], memory]]:[]
 
 		let links = block.innards[instance].links
 		for (let i=0; i<links.length; i++) {
@@ -853,6 +913,38 @@ function recursiveSourceEdit(domain, instance, addedSources, removedSources) {
 			recursiveSourceEdit(domain, block.links[i][j][0], addedSources, removedSources)
 		}
 	}
+}
+
+function *traverseMemory(mem) {
+	var position = [0]
+	while (position.length > 0) {
+		let curr = recursiveindex(mem, position)
+		if (curr!==undefined) {
+			yield curr
+
+			if (typeof(curr[1]) == "object") { 
+				position.push(1,0)
+			}
+			else position[position.length-1]++
+		} else {
+			//if (position[position.length-1] == recursiveindex(mem, position.slice(-1)).length) {
+			position.pop()
+			position.pop()
+			//} 
+			position[position.length-1]++
+		}
+	}
+}
+function recursiveindex(object, index) {		
+	var obj = object
+	var ind = index
+	for (let i=0; i<index.length; i++) {
+		obj = obj[ind[0]]
+		ind = ind.slice(1)
+	}
+	return obj
+	/*if (index.length == 0) return object
+	else return recursiveindex(object[index[0]] index.slice(1))*/
 }
 
 /* memory reference sheet
