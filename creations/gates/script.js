@@ -6,6 +6,12 @@ ctx = canvas.getContext('2d')
 canvas.width = window.innerWidth
 canvas.height = window.innerHeight
 
+window.onresize = ()=> { 
+	canvas.height = window.innerHeight
+	canvas.width = window.innerWidth
+	sidebarScroll=Math.max(sidebarScroll, customBlocks.length*SAVED_HEIGHT) 
+}
+
 var FONT_HEIGHT = 20
 const INPUT = 0
 const OUTPUT = 1
@@ -435,7 +441,7 @@ canvas.onmousemove = (e) => {
 				}
 				break;
 			case "sidebar":
-				sidebarScroll = scrollStart.y - mouse.y
+				sidebarScroll = Math.max(Math.min(scrollStart.y - mouse.y, customBlocks.length*SAVED_HEIGHT - canvas.height), -50)
 				break;
 			case "background":
 				scroll = {x: scrollStart.x-mouse.x, y: scrollStart.y-mouse.y}
@@ -616,6 +622,8 @@ function switchTo(n) {
 
 	disabledBlocks = [editing]
 	customBlocks.forEach((block,i)=>{if (block.dependencies.includes(editing)) disabledBlocks.push(i)})
+
+	scroll = {x:0,y:0}
 }
 
 function calculateBlockStats(n) {
