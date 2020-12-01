@@ -9,7 +9,8 @@ canvas.height = window.innerHeight
 window.onresize = ()=> { 
 	canvas.height = window.innerHeight
 	canvas.width = window.innerWidth
-	sidebarScroll=Math.max(sidebarScroll, customBlocks.length*SAVED_HEIGHT) 
+	sidebarScroll= Math.min(sidebarScroll, customBlocks.length*SAVED_HEIGHT) 
+	ctx.lineWidth = LAYOUT.line.width
 }
 
 var FONT_HEIGHT = 20
@@ -288,11 +289,12 @@ function renderBlock(id, x, y, colour, customname, memory, instancenum) {
  			// make interactive area
  			interactive_zones.push([...dimensions, 'statebulb', mem[i][0]])
  			// todo: make it possible to toggle this.. kinda hard to do efficiently since it can be nested arbitrarily :/?
+
+		 	// also make it like a stronger bottom or it will look rlly ugly
+		 	ctx.fillStyle = colour
+		 	ctx.roundRect(x, y, width, LAYOUT.block.radius+LAYOUT.block.endpoint.radius, LAYOUT.block.endpoint.radius).fill()
 		}
 
-	 	// also make it like a stronger bottom or it will look rlly ugly
-	 	ctx.fillStyle = colour
-	 	ctx.roundRect(x, y, width, LAYOUT.block.radius+LAYOUT.block.endpoint.radius, LAYOUT.block.endpoint.radius).fill()
 	 }
 
 	ctx.fillStyle = colour || customBlocks[id]
@@ -317,7 +319,7 @@ function renderBlock(id, x, y, colour, customname, memory, instancenum) {
 	 // inputs
 	var disabled = false
 	ctx.fillStyle = PALLETE.node.default
-	if (connecting) { if (connecting.isFromInput || customBlocks[editing].innards[connecting.from[0]].sources.includes(instancenum)) { 
+	if (connecting) { if (connecting.isFromInput || customBlocks[editing].innards[connecting.from[0]].sources.includes(instancenum)) {
 			ctx.fillStyle = PALLETE.node.disabled; disabled=true 
 	}}
 	let nodeOffset = height/2 - LAYOUT.node.padding*(block.in.length-1)/2
@@ -942,6 +944,7 @@ function recursiveSourceEdit(domain, instance, addedSources, removedSources) {
 }
 
 function *traverseMemory(mem) {
+	if (mem==undefined) return;
 	var position = [0]
 	while (position.length > 0) {
 		let curr = recursiveindex(mem, position)
