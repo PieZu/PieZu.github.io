@@ -316,7 +316,7 @@ document.getElementById("dynamicinput").onkeyup = newInput
 */
 
 function detectLanguage(text) {
-	if (text == "") { return false }	
+	if (text == "") { return [[data[0],1]]}	
 	return data.map(mapping=>{return [mapping, mapping.likelyhood(text.replace(/[ \t.,:!?\n]/g, ""))]}).sort((a,b)=>b[1]-a[1])
 }
 
