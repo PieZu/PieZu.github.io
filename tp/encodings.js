@@ -426,7 +426,7 @@ FORCE_SPACES = false
 
 settings = {
 	inputLanguage: false,
-	detectInputLanguage: false,	
+	detectInputLanguage: true,	
 	outputLanguage: false,
 	showAllOutputs: true 
 }
