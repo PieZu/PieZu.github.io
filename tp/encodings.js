@@ -90,13 +90,14 @@ const data = [
 	}),
 	new Encoding({
 		name: "old unicode script",
-		creator: "jan Henrik Theiling",
+		creator: "Henrik Theiling",
 		url: "http://www.theiling.de/schrift/tokipona.html",
 		mapping: {"!": "!", "(": "(", ")": ")", ",": ",", "-": "-", ".": ".", ":": ":", ";": ";", "?": "?", "<<": "《", ">>": "》", a: "⍤", akesi: "⍡", ala: "∅", ale: "◉", ali: "◉", anpa: "↓", ante: "⎌", anu: "∨", awen: "⚓", e: "↱", en: "&", ijo: "⚛", ike: "☹", ilo: "✄", insa: "⎆", jaki: "☣", jan: "ⵅ", jelo: "▥", jo: "⧈", kala: "ᘙ", kalama: "♪", kama: "⧉", kasi: "⚘", ken: "✓", kepeken: "⚒", kili: "ᴥ", kin: "◅", kiwen: "●", ko: "◍", kon: "⚐", kule: "▧", kulupu: "፨", kute: "✆", la: "⊏", lape: "⌤", laso: "▦", lawa: "♕", len: "♟", lete: "☃", li: "↴", lili: "▵", linja: "☡", lipu: "‿", loje: "▤", lon: "⍾", luka: "⌈", lukin: "∢", lupa: "◘", ma: "⏚", mama: "☝", mani: "¤", meli: "♀", mi: "⇊", mije: "♂", moku: "☕", moli: "☠", monsi: "↫", mu: "⍣", mun: "☾", musi: "☊", mute: "⚃", nanpa: "⋕", nasa: "⦼", nasin: "ᔔ", nena: "♎", ni: "⇲", nimi: "⊟", noka: "⌊", o: "⚠", oko: "⚇", olin: "♡", ona: "⇆", open: "⍽", pakala: "☁", pali: "♠", palisa: "∕", pana: "✉", pi: "⟄", pilin: "❦", pimeja: "■", pini: "⟟", pipi: "⩷", poka: "⫖", poki: "⚱", pona: "☺", sama: "⊜", seli: "♨", selo: "⎋", seme: "⍰", sewi: "↑", sijelo: "♙", sike: "○", sin: "♲", sina: "⇈", sinpin: "⌸", sitelen: "✎", sona: "◬", soweli: "ዥ", suli: "▽", suno: "☼", supa: "–", suwi: "⍨", tan: "↤", taso: "◦", tawa: "⇥", telo: "☔", tenpo: "⌛", toki: "ᑈ", tomo: "⌂", tu: "⚁", unpa: "♋", uta: "⍥", utala: "⚔", walo: "☐", wan: "⚀", waso: "⍢", wawa: "↯", weka: "⤣", wile: "❣"}
 	}),
 	new Encoding({
 		name: "unicode script",
-		creator: "jan mi",
+		creator: "me (jan Lile)",
+		url: "/",
 		mapping: {o: "ᆝ", a: "よ", kin: "ꎰ", seme: "？", ni: "ↆ", nanpa: "ꖛ", ali: "ꝏ", ale: "ꝏ", en: "⼗", sama: "＝", telo: "≈", kon: "🅍", ala: "✕", anu: "Ｙ", kipisi: "⸓", lete: "Ӿ", e: "⨠", pan: "巛", li: "ᐳ", suli: "ᐯ", lili: "v", kute: "ꎌ", la: "ᑐ", nena: "ᑎ", lupa: "ᑌ", supa: "丌", pona: "◡", ike: "⌒", luka: "Ꮑ", kepeken: "ቋ", pali: "ዳ", moku: "ሸ", wan: "↿", tu: "꠱", mute: "Ⲽ", ijo: "੦", palisa: "꧰", sike: "⦾", oko: "⦓", lukin: "ⵙ", moli: "⚇", ma: "ⴲ", lawa: "ፁ", mani: "ȣ", jan: "ꆰ", meli: "⍝", mije: "♂", tonsi: "⚧", toki: "⛣", sona: "畄", mi: "ᑭ", sina: "ᑲ", ona: "ᓄ", lape: "⊸", pi: "ட", poki: "⨆", lon: "∸", anpa: "ꦉ", poka: "ᑘ", insa: "⨃", lipu: "⧠", leko: "⧈", pu: "⌻", open: "ㅂ", len: "吊", ilo: "ዋ", selo: "爪", nimi: "▭", monsi: "·[", sinpin: "]·", pipi: "半", akesi: "單", pilin: "ఇ", olin: "ଞ", waso: "ᔱ", soweli: "Ლ", wile: "Ꞷ", sewi: "ﷲ", pimeja: "⨻", kule: "Ꙙ", laso: "ꖏ", kasi: "ܤ", walo: "ꕖ", jaki: "༳", nasa: "ඉ", unpa: "Ⰲ", ken: "Ｋ", pini: "工", pake: "ㅜ", taso: "ㅓ", nasin: "⨙", tenpo: "◷", esun: "ℒ", kulupu: "ஃ", wawa: "࿂", mu: "ൠ", musi: "☋", kalama: "෪", monsuta: "෴", linja: "ᔓ", ante: "ᳲ", uta: "ᗜ", mun: "☽", mama: "ჹ", kala: "ꩳ", pakala: "↯", alasa: "➵", tan: "⤺", sin: "𝇘", namako: "⊹", weka: "⤫", suno: "༓", sitelen: "ꘖ", tomo: "⌂", kiwen: "⯂", tawa: "႔", kama: "𓂻", utala: "⤩", jo: "၉", noka: "𓃀", wawa: "𓁏"}
 	}),
 	new Encoding({
@@ -284,7 +285,7 @@ function generateTables(data) {
 	}
 
 	// add column titles
-	dupeTable.unshift(["", ...data.map(set=>set.shortname)])
+	dupeTable.unshift(["", ...data.map(set=>`<a href=#${set.name}>${set.shortname}</a>`)])
 
 	// delete column if all empty (will also delete titles)
 	for (var corpus = data.length; corpus >= 0; corpus--) {
@@ -433,4 +434,4 @@ settings = {
 populateTranslateHTML()
 
 credits = document.getElementById('credits')
-data.forEach(mapping=>credits.innerHTML+=`<div><a href=${mapping.url}>${mapping.name}</a> made by <i>${mapping.creator}</i></div>`)
+data.slice(1).forEach(mapping=>credits.innerHTML+=`<div id=${mapping.name}>(${mapping.shortname}) <a href=${mapping.url}>${mapping.name}</a> made by <i>${mapping.creator}</i></div>`)
