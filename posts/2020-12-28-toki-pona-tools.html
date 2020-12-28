@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Blog Post</title> <!-- If you leave title as "Blog Post", it will automatically be updated to the post title -->
+    <link rel="icon" href="../images/favicon.png" type="image/x-icon"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8"> 
+    <link href="../style/style.css" rel="stylesheet" type="text/css" media="all">    
+  </head>
+  <body>
+    <div id="container">
+    <div id="header">...</div>
+    <div id="content">
+      <h1 id="postTitleH1"></h1>
+      <h4 id="postDate"></h4>
+      
+      <p><a href="//tokipona.org">toki pona</a><span class="linksize">(199kB)</span> is a minimalist conlang (constructed language).</p>
+
+      <p>In the process of learning toki pona, I realised that a few digital tools could make it a lot easier, so over the past year I've developed a site to host these tools.
+      
+      <p>First off, I needed a handy, useful, versatile, and quick dictionary.. something I could just type a word in and get all the definitions and its glyph in <a href="http://tokipona.net/tp/janpije/hieroglyphs.php">sitelen pona</a><span class="linksize">(241kB)</span> instantly. I also wanted to be able to search up words by starting to type them or reverse searching by definition.<br>& also I thought it would be useful to be able to just highlight text from whatever I'm reading and get those definitions.</p>
+      <p>So I coded that <a href="../lipu-ilo-lili/ilo">interactive dictionary</a><span class="linksize">(72kB)</span>
+      <img src=../images/tp_highlight.png alt="highlighted toki pona text with definitions displayed beneath"><img src=../images/tp_lookup.png alt="'sit' entered into searchbox and toki pona words containing 'sit' in name or definition displayed below">
+      <aside>(the actual definitions are taken from various sources (not me), see page for credits)</aside>
+
+      <p>Then, I saw there were a few systems people had made of writing in toki pona (including those afformentioned glyphs) but no central way of converting between them all, so I made an <a href="../lipu-ilo-lili/encodings">"encoding converter"</a><span class="linksize">(74kB)</span>, with a translate-esque box, dynamic tables, and simple settings menu</p>
+      <img src=../images/tp_allencodes.png alt='usage of interactive encoder tool, converting plaintext to all encodings'><img src=../images/tp_translate.png alt='usage of interactive encoder tool, converting emoji into symbols'><img src=../images/tp_table.png alt='snippet of table of toki pona encodings'>
+      <aside>(note that, save for <a href="../lipu-ilo-lili/sitelen Uniko">one particular unicode mapping</a><span class="linksize">(413kB)</span>, none of these 'encodings' were made by me, see dedicated page for credits)</aside>
+
+      <p>Then I collated them together into a small site and gave it a sleek, consistent aesthetic. go check out the <a href="../lipu-ilo-lili/">lipu sinpin (home page)</a><span class="linksize">(55kB)</span> ^-^
+    <div id="nextprev"></div>
+    </div>
+    <div id="footer"></div>
+    </div>
+  <script src="../script.js"></script>
+  </body>
+</html>

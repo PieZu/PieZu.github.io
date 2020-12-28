@@ -15,7 +15,8 @@
 		<main>
 			<ul class="markdown">
 				<li>about.html powered by [paper.js](http://paperjs.org/) ([MIT](http://paperjs.org/license/))</li>
-				<li>index.html powered by [scratch](https://scratch.mit.edu) ([CC-SA](https://creativecommons.org/licenses/by-sa/2.0/deed.en)) with [forkphorous](https://forkphorus.github.io/packager/) ([MIT](https://raw.githubusercontent.com/forkphorus/forkphorus/master/LICENSE))</li>
+				<li>index.html powered by [scratch](https://scratch.mit.edu/) ([CC-SA](https://creativecommons.org/licenses/by-sa/2.0/deed.en)) with [forkphorous](https://forkphorus.github.io/packager/) ([MIT](https://raw.githubusercontent.com/forkphorus/forkphorus/master/LICENSE))</li>
+				<li>[blog](home.html) powered by [zonelets](https://zonelets.net/)  ([MIT](https://choosealicense.com/licenses/mit/))
 				<li>hosting powered by [GitHub Pages](https://pages.github.com/)</li>
 				<li><a href="#" onclick="init_frogs()">frogs</a> powered by [alienmelon](https://github.com/alienmelon/frogpets.js)</li>
 				<li>rest done by [me](about)</li>
@@ -26,7 +27,7 @@
 			// markdownify it
 			[...document.getElementsByClassName('markdown')].forEach(element=>{
 				element.innerHTML = element.innerHTML
-									.replace(/\w+\.html/g, "<a href='$&'>$&</a>")
+									.replace(/\w+\.html(?:[^\[\)])/g, "<a href='$&'>$&</a>")
 									.replace(/\[(.+?)\]\((.+?)\)/g, "<a href='$2'>$1</a>")
 			})
 		</script>
